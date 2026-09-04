@@ -19,6 +19,7 @@ import { rawCSV } from './data/rawCSV';
 
 export default function App() {
   const [gpa5, setGpa5] = useState<number>(2.0);
+  const [inputGpa, setInputGpa] = useState<string>('2.000');
   const [conversionVersion, setConversionVersion] = useState<ConversionVersion>('mixed');
   const [gradeCounts, setGradeCounts] = useState<{ [key: number]: number }>({
     1: 0, 2: 0, 3: 0, 4: 0, 5: 0
@@ -26,12 +27,17 @@ export default function App() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchRange, setSearchRange] = useState<number>(0.1); // 기본 범위를 ±0.1로 복구
+  const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
-  const [showAmbitious, setShowAmbitious] = useState(true); // 소신 지원(더 높은 등급) 포함 여부
-  const [displayLimit, setDisplayLimit] = useState<number>(60); // 렌더링 부하 방지용 표시 개수 제한
+  const [showAmbitious, setShowAmbitious] = useState(true);
+  const [displayLimit, setDisplayLimit] = useState<number>(60);
 
-  // 검색 조건 변경 시 표시 개수 초기화
+  // gpa5 변경 시 텍스트 입력창 동기화
+  useEffect(() => {
+    setInputGpa(gpa5.toFixed(3));
+  }, [gpa5]);
+
+  // 검색 조건 변경 시 카드 표시 개수 초기화
   useEffect(() => {
     setDisplayLimit(60);
   }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, showAmbitious]);
@@ -47,12 +53,37 @@ export default function App() {
     return convertGrade(gpa5, conversionVersion);
   }, [gpa5, conversionVersion]);
 
+  // 키보드로 등급 직접 입력 처리
+  const handleInputChange = (val: string) => {
+    setInputGpa(val);
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      if (num >= 1.0 && num <= 5.0) {
+        setGpa5(num);
+      }
+    }
+  };
+
+  const handleInputBlur = () => {
+    const num = parseFloat(inputGpa);
+    if (isNaN(num) || num < 1.0) {
+      setGpa5(1.0);
+      setInputGpa('1.000');
+    } else if (num > 5.0) {
+      setGpa5(5.0);
+      setInputGpa('5.000');
+    } else {
+      setInputGpa(num.toFixed(3));
+    }
+  };
+
   const calculateGPA = () => {
     const totalCount = Object.values(gradeCounts).reduce((acc, val) => acc + val, 0);
     if (totalCount === 0) return;
     const weightedSum = Object.entries(gradeCounts).reduce((acc, [grade, count]) => acc + (parseInt(grade) * count), 0);
     const result = weightedSum / totalCount;
     setGpa5(result);
+    setInputGpa(result.toFixed(3));
     setShowCalculator(false);
   };
 
@@ -155,11 +186,22 @@ export default function App() {
 
             <div className="space-y-8">
               <div className="flex justify-between items-end">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current GPA (5-Grade)</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current GPA (5-Grade)</span>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">직접 입력 가능 ✍️</span>
+                  </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-6xl font-black text-indigo-600 tabular-nums">{gpa5.toFixed(3)}</span>
-                    <span className="text-xl font-bold text-slate-300">등급</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={inputGpa}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onBlur={handleInputBlur}
+                      placeholder="1.000 ~ 5.000"
+                      className="w-48 text-5xl font-black text-indigo-600 tabular-nums bg-slate-50 hover:bg-slate-100 focus:bg-white border-2 border-slate-200 focus:border-indigo-600 rounded-2xl px-3 py-1 outline-none transition-all shadow-inner"
+                    />
+                    <span className="text-xl font-bold text-slate-400">등급</span>
                   </div>
                 </div>
               </div>
@@ -178,7 +220,13 @@ export default function App() {
                 {[1, 2, 3, 4, 5].map(v => (
                   <div key={v} className="text-center space-y-1">
                     <div className={`h-1 rounded-full ${gpa5 >= v - 0.5 && gpa5 <= v + 0.5 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
-                    <span className="text-[10px] font-black text-slate-400">{v}.0</span>
+                    <button
+                      type="button"
+                      onClick={() => setGpa5(v)}
+                      className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors"
+                    >
+                      {v}.0
+                    </button>
                   </div>
                 ))}
               </div>
