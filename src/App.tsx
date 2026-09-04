@@ -19,7 +19,8 @@ import {
   CheckCircle,
   Calendar,
   Sliders,
-  Info
+  Lock,
+  ArrowLeft
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
@@ -85,7 +86,7 @@ export default function App() {
     return map[completedSemester];
   }, [completedSemester]);
 
-  // 슬라이더 조작 시: 선택된 이수 학기(예: 1-1, 1-2)에 일괄 연동 적용
+  // 슬라이더 조작 시: 선택된 이수 학기에 일괄 반영
   const handleSliderChange = (val: number) => {
     setSliderGpa(val);
     setSliderInput(val.toFixed(3));
@@ -120,7 +121,7 @@ export default function App() {
     }
   };
 
-  // 학기별 개별 수정 핸들러
+  // 남은 학기(예측) 개별 수정 핸들러
   const handleGradeChange = (key: keyof typeof grades, value: string) => {
     setGrades(prev => ({ ...prev, [key]: value }));
   };
@@ -291,43 +292,44 @@ export default function App() {
             <div>
               <h2 className="text-2xl font-black tracking-tight text-slate-900">내신 성적 설정 및 학기별 시뮬레이터</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                슬라이더 바를 조작하면 이수한 학기에 일괄 반영되며, 우측 표에서 세부 학기별 점수를 자유롭게 조정할 수 있습니다.
+                슬라이더 바를 조작하면 이수한 학기에 일괄 반영되며, 우측 표에서 남은 학기 예상 점수를 입력할 수 있습니다.
               </p>
             </div>
 
-            {/* 이수 완료 학기 선택 토글 바 */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl">
-              <span className="text-xs font-bold text-slate-600 px-2 flex items-center gap-1">
+            {/* 현재 이수 학기 선택 토글 바 (줄바꿈 없이 한 줄로 완성) */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl shrink-0 overflow-x-auto">
+              <span className="text-xs font-bold text-slate-600 px-2 flex items-center gap-1 whitespace-nowrap">
                 <Calendar className="w-3.5 h-3.5 text-indigo-600" />
                 현재 이수 학기:
               </span>
-              {(['1-1', '1-2', '2-1', '2-2'] as const).map(sem => (
-                <button
-                  key={sem}
-                  onClick={() => {
-                    setCompletedSemester(sem);
-                    // 학기 범위 변경 시 현재 슬라이더 값으로 재동기화
-                    const map = { '1-1': 1, '1-2': 2, '2-1': 3, '2-2': 4 };
-                    const count = map[sem];
-                    const formatted = sliderGpa.toFixed(2);
-                    setGrades(prev => {
-                      const next = { ...prev };
-                      if (count >= 1) next.sem1_1 = formatted;
-                      if (count >= 2) next.sem1_2 = formatted;
-                      if (count >= 3) next.sem2_1 = formatted;
-                      if (count >= 4) next.sem2_2 = formatted;
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                    completedSemester === sem 
-                      ? 'bg-indigo-600 text-white shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                >
-                  {sem}까지
-                </button>
-              ))}
+              <div className="flex items-center gap-1 flex-nowrap">
+                {(['1-1', '1-2', '2-1', '2-2'] as const).map(sem => (
+                  <button
+                    key={sem}
+                    onClick={() => {
+                      setCompletedSemester(sem);
+                      const map = { '1-1': 1, '1-2': 2, '2-1': 3, '2-2': 4 };
+                      const count = map[sem];
+                      const formatted = sliderGpa.toFixed(2);
+                      setGrades(prev => {
+                        const next = { ...prev };
+                        if (count >= 1) next.sem1_1 = formatted;
+                        if (count >= 2) next.sem1_2 = formatted;
+                        if (count >= 3) next.sem2_1 = formatted;
+                        if (count >= 4) next.sem2_2 = formatted;
+                        return next;
+                      });
+                    }}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      completedSemester === sem 
+                        ? 'bg-indigo-600 text-white shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    {sem}까지
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -341,15 +343,6 @@ export default function App() {
                   내신 일괄 조정 슬라이더
                 </span>
                 <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">직접 입력 가능 ✍️</span>
-              </div>
-
-              {/* 안내 멘트 배너 */}
-              <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-indigo-900 leading-snug">
-                <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                <span>
-                  슬라이더를 조작하면 현재 이수한 <strong className="text-indigo-700">1-1 ~ {completedSemester}학기</strong> 성적이 
-                  <strong className="text-indigo-700"> {sliderGpa.toFixed(2)}등급</strong>으로 자동 일괄 기록됩니다.
-                </span>
               </div>
 
               <div className="flex items-baseline gap-2 pt-1">
@@ -390,7 +383,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 우측: 1-1부터 3-1까지 5개 학기 세부 입력 카드 */}
+            {/* 우측: 1-1부터 3-1까지 5개 학기 세부 입력 카드 및 안내 멘트 */}
             <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
@@ -417,6 +410,7 @@ export default function App() {
                 </button>
               </div>
 
+              {/* 5개 학기 카드 그리드 */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-1">
                 {semesterInfo.allSemesters.map((sem, idx) => {
                   const isCompleted = idx < semesterInfo.completedCount;
@@ -425,14 +419,15 @@ export default function App() {
                       key={sem.id}
                       className={`p-3 rounded-xl border text-center space-y-1.5 transition-all shadow-2xs ${
                         isCompleted 
-                          ? 'bg-indigo-50/70 border-indigo-200' 
+                          ? 'bg-slate-100/90 border-slate-200' 
                           : 'bg-emerald-50/50 border-emerald-200'
                       }`}
                     >
                       <div className="flex items-center justify-between px-0.5">
                         <span className="text-[11px] font-black text-slate-700">{sem.short}</span>
                         {isCompleted ? (
-                          <span className="text-[8px] font-black text-indigo-700 bg-indigo-100 px-1 py-0.2 rounded">
+                          <span className="text-[8px] font-black text-slate-600 bg-slate-200/80 px-1 py-0.2 rounded flex items-center gap-0.5">
+                            <Lock className="w-2 h-2" />
                             이수
                           </span>
                         ) : (
@@ -445,23 +440,40 @@ export default function App() {
                       <input
                         type="text"
                         inputMode="decimal"
+                        readOnly={isCompleted}
+                        disabled={isCompleted}
                         placeholder={idx === 0 ? sliderGpa.toFixed(2) : semesterInfo.allSemesters[idx - 1].grade.toFixed(2)}
                         value={sem.raw}
                         onChange={(e) => handleGradeChange(sem.id as keyof typeof grades, e.target.value)}
-                        className={`w-full py-1.5 text-center text-lg font-black rounded-lg border outline-none transition-all shadow-inner ${
+                        className={`w-full py-1.5 text-center text-lg font-black rounded-lg border outline-none transition-all ${
                           isCompleted
-                            ? 'bg-white border-indigo-200 text-indigo-950 focus:border-indigo-600'
-                            : 'bg-white border-emerald-200 text-emerald-950 focus:border-emerald-600'
+                            ? 'bg-slate-200/50 border-slate-300 text-slate-500 cursor-not-allowed select-none shadow-none'
+                            : 'bg-white border-emerald-200 text-emerald-950 focus:border-emerald-600 shadow-inner'
                         }`}
                       />
+                      <span className="text-[9px] font-bold text-slate-400 block">
+                        {isCompleted ? '수정 불가(확정)' : '직접 입력 가능'}
+                      </span>
                     </div>
                   );
                 })}
               </div>
+
+              {/* ★ 학기별 세부 성적 입력 밑으로 이동된 안내 멘트 (왼쪽 화살표 적용) */}
+              <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl p-2.5 flex items-center gap-2 text-[11px] text-indigo-950 leading-snug mt-3">
+                <span className="flex items-center gap-1 font-black text-indigo-600 shrink-0 bg-indigo-100/80 px-1.5 py-0.5 rounded">
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>연동 안내</span>
+                </span>
+                <span>
+                  왼쪽 슬라이더를 조작하면 현재 이수한 <strong className="text-indigo-700 font-black">1-1 ~ {completedSemester}학기</strong> 성적이 
+                  <strong className="text-indigo-700 font-black"> {sliderGpa.toFixed(2)}등급</strong>으로 자동 일괄 기록됩니다.
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* 메인 블랙 대시보드 및 3대 핵심 모드 탭 (동일 라인 정렬) */}
+          {/* 메인 블랙 대시보드 및 3대 핵심 모드 탭 */}
           <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div className="space-y-1">
@@ -665,7 +677,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* 검색 옵션 토글 */}
+              {/* 모드 1, 2일 때만 범위 필터 표시 */}
               {searchMode !== 'goal_seek' && (
                 <div className="flex flex-wrap items-center gap-2.5">
                   {isTopTierGrade && (
