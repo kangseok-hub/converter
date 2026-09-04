@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   GraduationCap, 
@@ -29,6 +29,12 @@ export default function App() {
   const [searchRange, setSearchRange] = useState<number>(0.1); // 기본 범위를 ±0.1로 복구
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
   const [showAmbitious, setShowAmbitious] = useState(true); // 소신 지원(더 높은 등급) 포함 여부
+  const [displayLimit, setDisplayLimit] = useState<number>(60); // 렌더링 부하 방지용 표시 개수 제한
+
+  // 검색 조건 변경 시 표시 개수 초기화
+  useEffect(() => {
+    setDisplayLimit(60);
+  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, showAmbitious]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -114,7 +120,7 @@ export default function App() {
             </div>
             <div className="flex flex-col">
               <h1 className="font-serif italic font-black text-2xl tracking-tighter uppercase leading-none text-slate-900">9등급 환산 적정 대학 찾기(경기, 부산, 광주 자료)</h1>
-              <p className="text-[10px] text-indigo-600 font-black tracking-[0.3em] uppercase mt-1">(2025학년도 입결 자료)</p>
+              <p className="text-[10px] text-indigo-600 font-black tracking-[0.3em] uppercase mt-1">(2026학년도 입결 자료)</p>
             </div>
           </div>
           <div className="hidden md:block text-right">
@@ -247,7 +253,7 @@ export default function App() {
                   </p>
                   {gpa5 <= 1.5 && (
                     <p className="text-[11px] text-indigo-300 font-medium">
-                      💡 5등급제 1.0은 9등급제 기준 약 1.4등급으로 환산됩니다. (2025 분석 자료 기준) <br/>
+                      💡 5등급제 1.0은 9등급제 기준 약 1.4등급으로 환산됩니다. (2026 분석 자료 기준) <br/>
                       1.0~1.3 구간의 대학을 보려면 '소신 지원 포함'을 켜주세요.
                     </p>
                   )}
@@ -323,7 +329,7 @@ export default function App() {
                       적정 대학 리스트
                     </h2>
                   </div>
-                  <p className="text-[10px] text-indigo-600 font-black tracking-widest uppercase ml-15">출처 : 2025 어디가 입결 자료</p>
+                  <p className="text-[10px] text-indigo-600 font-black tracking-widest uppercase ml-15">출처 : 2026 어디가 입결 자료</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-xl shadow-sm">
@@ -435,54 +441,66 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
               {filteredRecords.length > 0 ? (
-                filteredRecords.map((record, index) => (
-                  <motion.div
-                    key={`${record.university}-${record.department}-${index}`}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
-                    className="group bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100/50 hover:-translate-y-1 transition-all"
-                  >
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black rounded-lg uppercase tracking-widest">
-                            {record.category}
-                          </span>
-                          {(() => {
-                            const diff = getDifficulty(record.averageGrade, conversion.grade9);
-                            return (
-                              <span className={`px-2 py-1 border text-[9px] font-black rounded-lg uppercase tracking-widest ${diff.color}`}>
-                                {diff.label}
-                              </span>
-                            );
-                          })()}
+                <>
+                  {filteredRecords.slice(0, displayLimit).map((record, index) => (
+                    <motion.div
+                      key={`${record.university}-${record.department}-${record.admissionName}-${index}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="group bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100/50 hover:-translate-y-1 transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black rounded-lg uppercase tracking-widest">
+                              {record.category}
+                            </span>
+                            {(() => {
+                              const diff = getDifficulty(record.averageGrade, conversion.grade9);
+                              return (
+                                <span className={`px-2 py-1 border text-[9px] font-black rounded-lg uppercase tracking-widest ${diff.color}`}>
+                                  {diff.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <h3 className="font-serif italic font-black text-xl text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
+                            {record.university}
+                          </h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{record.campus}</p>
                         </div>
-                        <h3 className="font-serif italic font-black text-xl text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
-                          {record.university}
-                        </h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{record.campus}</p>
+                        <div className="text-right">
+                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Avg Grade</p>
+                          <p className="text-2xl font-black text-indigo-600 tabular-nums">{record.averageGrade.toFixed(2)}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Avg Grade</p>
-                        <p className="text-2xl font-black text-indigo-600 tabular-nums">{record.averageGrade.toFixed(2)}</p>
+                      
+                      <div className="space-y-4 pt-6 border-t border-slate-50">
+                        <div className="space-y-1">
+                          <p className="text-sm font-black text-slate-800 line-clamp-1">{record.department}</p>
+                          <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{record.admissionName}</p>
+                        </div>
+                        <div className="flex items-center justify-between text-indigo-600">
+                          <span className="text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">View Details</span>
+                          <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </div>
                       </div>
+                    </motion.div>
+                  ))}
+
+                  {filteredRecords.length > displayLimit && (
+                    <div className="col-span-full text-center py-8">
+                      <button
+                        onClick={() => setDisplayLimit(prev => prev + 60)}
+                        className="px-8 py-3.5 bg-indigo-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                      >
+                        결과 더보기 ({Math.min(displayLimit, filteredRecords.length)} / {filteredRecords.length})
+                      </button>
                     </div>
-                    
-                    <div className="space-y-4 pt-6 border-t border-slate-50">
-                      <div className="space-y-1">
-                        <p className="text-sm font-black text-slate-800 line-clamp-1">{record.department}</p>
-                        <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{record.admissionName}</p>
-                      </div>
-                      <div className="flex items-center justify-between text-indigo-600">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">View Details</span>
-                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
+                  )}
+                </>
               ) : (
                 <div className="col-span-full py-32 text-center space-y-6">
                   <div className="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto border border-slate-100">
@@ -529,4 +547,3 @@ export default function App() {
     </div>
   );
 }
-
