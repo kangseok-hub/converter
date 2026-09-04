@@ -31,7 +31,7 @@ export default function App() {
   const [gpa1_1, setGpa1_1] = useState<number>(2.0);
   const [inputGpa1_1, setInputGpa1_1] = useState<string>('2.000');
   const [futureGrades, setFutureGrades] = useState({
-    sem1_2: '2.20',
+    sem1_2: '',
     sem2_1: '',
     sem2_2: '',
     sem3_1: ''
