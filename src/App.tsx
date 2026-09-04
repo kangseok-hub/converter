@@ -14,8 +14,7 @@ import {
   GraduationCap as EducationIcon,
   RotateCcw,
   Sparkles,
-  Compass,
-  ArrowRight
+  Compass
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
@@ -32,7 +31,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
-  const [showAmbitious, setShowAmbitious] = useState(true);
   const [displayLimit, setDisplayLimit] = useState<number>(90);
 
   // 학기별 예상 등급 상태
@@ -42,7 +40,7 @@ export default function App() {
     sem2_2: '',
     sem3_1: ''
   });
-  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준 탐색
+  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준
 
   // gpa5 변경 시 입력창 동기화
   useEffect(() => {
@@ -52,7 +50,7 @@ export default function App() {
   // 검색 조건 변경 시 카드 표시 개수 초기화
   useEffect(() => {
     setDisplayLimit(90);
-  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, showAmbitious, futureGrades, useProjectedGrade]);
+  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -134,9 +132,10 @@ export default function App() {
     setShowCalculator(false);
   };
 
+  // 정확한 검색 범위(±searchRange) 적용
   const categoryCounts = useMemo(() => {
     const targetGrade = activeConversion.grade9;
-    const lowerBound = showAmbitious ? Math.max(1.0, targetGrade - searchRange * 5.0) : targetGrade - searchRange;
+    const lowerBound = targetGrade - searchRange;
     const upperBound = targetGrade + searchRange;
 
     const baseFiltered = allRecords.filter(record => {
@@ -153,11 +152,11 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, activeConversion.grade9, searchRange, selectedUniversity, searchQuery, showAmbitious]);
+  }, [allRecords, activeConversion.grade9, searchRange, selectedUniversity, searchQuery]);
 
   const filteredRecords = useMemo(() => {
     const targetGrade = activeConversion.grade9;
-    const lowerBound = showAmbitious ? Math.max(1.0, targetGrade - searchRange * 5.0) : targetGrade - searchRange;
+    const lowerBound = targetGrade - searchRange;
     const upperBound = targetGrade + searchRange;
     
     return allRecords.filter(record => {
@@ -170,12 +169,12 @@ export default function App() {
       
       return gradeMatch && categoryMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, activeConversion.grade9, selectedCategory, searchQuery, searchRange, selectedUniversity, showAmbitious]);
+  }, [allRecords, activeConversion.grade9, selectedCategory, searchQuery, searchRange, selectedUniversity]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
-    if (diff < -0.15) return { label: '소신', color: 'bg-rose-50 text-rose-600 border-rose-200' };
-    if (diff > 0.15) return { label: '안정', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
+    if (diff < -0.05) return { label: '소신', color: 'bg-rose-50 text-rose-600 border-rose-200' };
+    if (diff > 0.05) return { label: '안정', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
     return { label: '적정', color: 'bg-blue-50 text-blue-600 border-blue-200' };
   };
 
@@ -282,7 +281,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 향후 학기별 예상 등급 (파스텔 민트/에메랄드 톤 구별) */}
+            {/* 향후 학기별 예상 등급 */}
             <div className="lg:col-span-7 bg-emerald-50/50 p-5 rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
@@ -331,9 +330,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* ★ 핵심 성적 비교 대시보드 (블랙 배경 + 초대형 화이트/네온 폰트 강조) */}
+          {/* 핵심 성적 비교 대시보드 */}
           <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
-            {/* 상단 레이블 & 탐색 기준 토글 */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -345,7 +343,7 @@ export default function App() {
                 </h3>
               </div>
 
-              {/* 탐색 기준 선택 토글 (줄바꿈 없이 한 줄 유지) */}
+              {/* 탐색 기준 선택 토글 */}
               <div className="inline-flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0 gap-1.5">
                 <button
                   onClick={() => setUseProjectedGrade(false)}
@@ -371,9 +369,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* 메인 2분할 대형 점수 표시 영역 */}
+            {/* 대형 점수 표시 영역 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-center">
-              {/* 왼쪽: 현재 성적 (1-1) */}
+              {/* 왼쪽: 현재 성적 */}
               <div className={`p-6 rounded-2xl transition-all border ${
                 !useProjectedGrade 
                   ? 'bg-slate-900/90 border-cyan-500/50 ring-2 ring-cyan-500/20' 
@@ -382,7 +380,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black tracking-wider uppercase text-cyan-300 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                    현재 성적 (현재 성적)
+                    현재 성적
                   </span>
                   {!useProjectedGrade && (
                     <span className="text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">
@@ -404,7 +402,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 오른쪽: 예상 최종 (1-1 ~ 3-1) */}
+              {/* 오른쪽: 예상 최종 */}
               <div className={`p-6 rounded-2xl transition-all border ${
                 useProjectedGrade 
                   ? 'bg-slate-900/90 border-emerald-500/60 ring-2 ring-emerald-500/20' 
@@ -544,18 +542,9 @@ export default function App() {
                 </span>
               </div>
 
-              {/* 검색 범위 & 소신 지원 토글 */}
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-600">
-                  <input 
-                    type="checkbox" 
-                    checked={showAmbitious}
-                    onChange={(e) => setShowAmbitious(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                  />
-                  <span>소신 포함</span>
-                </label>
-
+              {/* 검색 범위 선택 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-500 mr-1">검색 범위:</span>
                 <div className="flex bg-slate-100 p-0.5 rounded-lg">
                   {[0.1, 0.2, 0.3].map(r => (
                     <button 
@@ -711,13 +700,10 @@ export default function App() {
                 <Search className="w-8 h-8 text-slate-300 mx-auto" />
                 <h3 className="text-base font-bold text-slate-800">해당 조건의 대학이 없습니다</h3>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                  검색 범위를 넓히거나(±0.2 이상) '소신 포함' 체크박스를 켜보세요.
+                  검색 범위를 넓히거나(±0.2 이상) 다른 계열을 선택해 보세요.
                 </p>
                 <button 
-                  onClick={() => {
-                    setSearchRange(0.2);
-                    setShowAmbitious(true);
-                  }}
+                  onClick={() => setSearchRange(0.2)}
                   className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors"
                 >
                   검색 범위 ±0.2로 확대
