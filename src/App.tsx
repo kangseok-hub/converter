@@ -15,21 +15,27 @@ import {
   RotateCcw,
   Sparkles,
   Compass,
-  Unlock,
-  Lock,
   Target,
   CheckCircle,
-  HelpCircle
+  Calendar
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
 
+// 3가지 핵심 모드 타입
+export type SearchMode = 'current' | 'projected' | 'goal_seek';
+
 export default function App() {
-  // 현재 이수한 학기 선택 (기본: 1학년 2학기까지 이수)
-  const [completedSemester, setCompletedSemester] = useState<'1-1' | '1-2' | '2-1' | '2-2'>('1-2');
+  // 3대 핵심 탐색 모드: 'current'(현재 성적) | 'projected'(예상 최종 성적) | 'goal_seek'(목표 대학 역산)
+  const [searchMode, setSearchMode] = useState<SearchMode>('projected');
+
+  // 현재 이수한 학기 선택 (1-1까지, 1-2까지, 2-1까지, 2-2까지)
+  const [completedSemester, setCompletedSemester] = useState<'1-1' | '1-2' | '2-1' | '2-2'>('1-1');
 
   const [gpa1_1, setGpa1_1] = useState<number>(2.0);
   const [inputGpa1_1, setInputGpa1_1] = useState<string>('2.000');
+  
+  // 1-2학기 기본값을 빈 문자열('')로 초기화 (2.20 하드코딩 완전 제거)
   const [futureGrades, setFutureGrades] = useState({
     sem1_2: '',
     sem2_1: '',
@@ -47,8 +53,6 @@ export default function App() {
   const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
   const [displayLimit, setDisplayLimit] = useState<number>(90);
-  const [ignoreGradeLimit, setIgnoreGradeLimit] = useState<boolean>(false);
-  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true);
   const [includeTopTier, setIncludeTopTier] = useState<boolean>(true);
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export default function App() {
 
   useEffect(() => {
     setDisplayLimit(90);
-  }, [gpa1_1, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade, includeTopTier, ignoreGradeLimit, completedSemester]);
+  }, [gpa1_1, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, searchMode, includeTopTier, completedSemester]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -84,7 +88,7 @@ export default function App() {
     };
   }, [conversionVersion]);
 
-  // 학기별 데이터 정돈 및 이수/남은 학기 구분
+  // 학기별 성적 집계 및 남은 학기 동적 산출
   const semesterStatus = useMemo(() => {
     const parseOrCurrent = (val: string, fallback: number) => {
       const parsed = parseFloat(val);
@@ -98,11 +102,11 @@ export default function App() {
     const g5 = parseOrCurrent(futureGrades.sem3_1, g4);
 
     const semList = [
-      { id: '1-1', label: '1학년 1학기', grade: g1 },
-      { id: '1-2', label: '1학년 2학기', grade: g2 },
-      { id: '2-1', label: '2학년 1학기', grade: g3 },
-      { id: '2-2', label: '2학년 2학기', grade: g4 },
-      { id: '3-1', label: '3학년 1학기', grade: g5 },
+      { id: '1-1', label: '1-1학기', grade: g1 },
+      { id: '1-2', label: '1-2학기', grade: g2 },
+      { id: '2-1', label: '2-1학기', grade: g3 },
+      { id: '2-2', label: '2-2학기', grade: g4 },
+      { id: '3-1', label: '3-1학기', grade: g5 },
     ];
 
     const completedCountMap = { '1-1': 1, '1-2': 2, '2-1': 3, '2-2': 4 };
@@ -140,21 +144,23 @@ export default function App() {
     return convertGrade(semesterStatus.projectedGpa5, conversionVersion);
   }, [semesterStatus.projectedGpa5, conversionVersion]);
 
-  // 대학 탐색에 사용할 최종 타겟 등급 결정
+  // 현재 활성 타겟 성적
   const activeConversion = useMemo(() => {
-    return useProjectedGrade ? projectedConversion : currentConversion;
-  }, [useProjectedGrade, projectedConversion, currentConversion]);
+    return searchMode === 'projected' ? projectedConversion : currentConversion;
+  }, [searchMode, projectedConversion, currentConversion]);
 
   // 1.0~1.3대 최상위 소신 개방 설정
   const isTopTierGrade = activeConversion.grade9 <= 1.55;
   const lowerBound = useMemo(() => {
+    if (searchMode === 'goal_seek') return 1.00; // 목표 역산 모드는 전체 개방
     if (isTopTierGrade && includeTopTier) return 1.00;
     return Math.max(1.00, activeConversion.grade9 - searchRange);
-  }, [activeConversion.grade9, searchRange, isTopTierGrade, includeTopTier]);
+  }, [activeConversion.grade9, searchRange, isTopTierGrade, includeTopTier, searchMode]);
 
   const upperBound = useMemo(() => {
+    if (searchMode === 'goal_seek') return 9.00; // 목표 역산 모드는 전체 개방
     return activeConversion.grade9 + searchRange;
-  }, [activeConversion.grade9, searchRange]);
+  }, [activeConversion.grade9, searchRange, searchMode]);
 
   // 키보드로 등급 직접 입력
   const handleInputChange = (val: string) => {
@@ -188,7 +194,7 @@ export default function App() {
     setShowCalculator(false);
   };
 
-  // 특정 대학에 합격하기 위해 남은 학기 동안 필요한 등급 산출
+  // 특정 대학 입결을 달성하기 위해 남은 학기 동안 필요한 등급 산출
   const calculateRequiredRemainingGrade = (deptCut9: number) => {
     const targetGpa5 = invert9to5(deptCut9);
     const totalNeededSum = targetGpa5 * 5;
@@ -202,10 +208,10 @@ export default function App() {
     };
   };
 
-  // 계열별 카운트
+  // 계열별 모집단위 개수 계산
   const categoryCounts = useMemo(() => {
     const baseFiltered = allRecords.filter(record => {
-      const gradeMatch = ignoreGradeLimit || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
+      const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
       const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -218,12 +224,12 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery, ignoreGradeLimit]);
+  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery, searchMode]);
 
-  // 최종 필터링된 결과
+  // 최종 필터링된 대학 리스트
   const filteredRecords = useMemo(() => {
     return allRecords.filter(record => {
-      const gradeMatch = ignoreGradeLimit || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
+      const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
       const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -232,7 +238,7 @@ export default function App() {
       
       return gradeMatch && categoryMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity, ignoreGradeLimit]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity, searchMode]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
@@ -281,17 +287,20 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* 성적 입력 & 시뮬레이션 섹션 */}
+        {/* 성적 입력 및 학기 설정 */}
         <section className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200/70 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-slate-900">성적 입력 및 남은 학기 목표 시뮬레이터</h2>
-              <p className="text-xs text-slate-500 mt-0.5">현재까지 이수한 성적을 바탕으로, 목표 대학에 가기 위해 남은 학기에 필요한 등급을 자동 역산합니다.</p>
+              <h2 className="text-2xl font-black tracking-tight text-slate-900">성적 입력 및 학기 설정</h2>
+              <p className="text-xs text-slate-500 mt-0.5">현재까지 이수한 학기를 선택하고, 성적을 입력하면 최종 환산 등급과 목표선이 실시간 계산됩니다.</p>
             </div>
 
             {/* 현재 이수 학기 선택 토글 바 */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl">
-              <span className="text-xs font-bold text-slate-500 pl-2">현재 이수 학기:</span>
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl">
+              <span className="text-xs font-bold text-slate-500 px-2 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                이수 완료:
+              </span>
               {(['1-1', '1-2', '2-1', '2-2'] as const).map(sem => (
                 <button
                   key={sem}
@@ -299,7 +308,7 @@ export default function App() {
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
                     completedSemester === sem 
                       ? 'bg-indigo-600 text-white shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                 >
                   {sem}까지
@@ -308,14 +317,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* 학기별 성적 입력 카드들 */}
+          {/* 성적 입력 카드들 */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* 1-1 성적 입력 */}
             <div className="lg:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-indigo-600" />
-                  1학년 1학기 (이수 완료 성적)
+                  1학년 1학기 성적
                 </span>
                 <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">직접 입력 가능 ✍️</span>
               </div>
@@ -358,13 +367,13 @@ export default function App() {
               </div>
             </div>
 
-            {/* 1-2, 2-1, 2-2, 3-1 학기 입력 (이수 여부에 따라 파스텔 톤 동적 변경) */}
+            {/* 후속 학기 성적 입력 (이수 학기는 인디고 톤, 남은 학기는 에메랄드 톤) */}
             <div className="lg:col-span-7 bg-emerald-50/50 p-5 rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
                   <span className="text-xs font-black text-emerald-950">
-                    후속 학기 성적 (남은 학기: {semesterStatus.remainingCount}개)
+                    후속 학기 성적 (남은 학기: <strong className="text-indigo-600">{semesterStatus.remainingCount}개</strong>)
                   </span>
                 </div>
                 <button
@@ -391,9 +400,9 @@ export default function App() {
                       <div className="flex items-center justify-center gap-1">
                         <span className="text-[10px] font-black text-slate-700">{label}</span>
                         {isDone ? (
-                          <span className="text-[8px] font-black text-indigo-700 bg-indigo-100 px-1 rounded">이수</span>
+                          <span className="text-[8px] font-black text-indigo-700 bg-indigo-100 px-1 rounded">이수완료</span>
                         ) : (
-                          <span className="text-[8px] font-black text-emerald-700 bg-emerald-100 px-1 rounded">예측</span>
+                          <span className="text-[8px] font-black text-emerald-700 bg-emerald-100 px-1 rounded">남은예측</span>
                         )}
                       </div>
                       <input
@@ -411,57 +420,75 @@ export default function App() {
             </div>
           </div>
 
-          {/* 핵심 성적 비교 대시보드 */}
+          {/* ★ 핵심 비교 카드 및 3대 핵심 모드 탭 (같은 라인에 일관되게 배치) */}
           <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400">Core Grade Comparison</span>
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400">Core Navigation Tabs</span>
                 </div>
                 <h3 className="text-lg md:text-xl font-serif italic font-black tracking-tight text-white">
-                  내신 성적 및 9등급제 환산 결과 비교
+                  수시 지원 탐색 모드 선택
                 </h3>
               </div>
 
-              {/* 탐색 기준 선택 토글 */}
-              <div className="inline-flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0 gap-1.5">
+              {/* ★ 3가지 핵심 기능 탭 (동일한 라인에 정렬) */}
+              <div className="inline-flex flex-wrap bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 gap-1.5">
+                {/* 1. 현재 성적 기준 */}
                 <button
-                  onClick={() => setUseProjectedGrade(false)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black transition-all ${
-                    !useProjectedGrade 
-                      ? 'bg-white text-slate-900 shadow-md shadow-white/10' 
+                  onClick={() => setSearchMode('current')}
+                  className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    searchMode === 'current' 
+                      ? 'bg-cyan-500 text-slate-950 font-black shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-300' 
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  현재 성적 기준 ({completedSemester}까지)
+                  현재 성적 기준
                 </button>
+
+                {/* 2. 예상 최종 성적 기준 */}
                 <button
-                  onClick={() => setUseProjectedGrade(true)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
-                    useProjectedGrade 
+                  onClick={() => setSearchMode('projected')}
+                  className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                    searchMode === 'projected' 
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-300' 
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>예상 최종 성적 기준 (적용 중)</span>
+                  <span>예상 최종 성적 기준</span>
+                </button>
+
+                {/* 3. 목표 대학 역산 시뮬레이션 (등급 무관 전체 검색 + 남은 학기 필요 성적 산출) */}
+                <button
+                  onClick={() => setSearchMode('goal_seek')}
+                  className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                    searchMode === 'goal_seek' 
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black shadow-lg shadow-amber-500/20 ring-1 ring-amber-300' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Target className="w-3.5 h-3.5 shrink-0" />
+                  <span>목표 대학 역산 (남은 학기 필요 성적)</span>
                 </button>
               </div>
             </div>
 
             {/* 대형 점수 표시 영역 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-center">
-              {/* 현재 이수 성적 */}
+              {/* 왼쪽: 현재 성적 기준 */}
               <div className={`p-6 rounded-2xl transition-all border ${
-                !useProjectedGrade ? 'bg-slate-900/90 border-cyan-500/50 ring-2 ring-cyan-500/20' : 'bg-slate-900/40 border-slate-800'
+                searchMode === 'current' 
+                  ? 'bg-slate-900/90 border-cyan-500/60 ring-2 ring-cyan-500/20 shadow-md' 
+                  : 'bg-slate-900/40 border-slate-800'
               }`}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black tracking-wider uppercase text-cyan-300 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                    현재 이수 완료 평균 ({completedSemester}까지)
+                    현재 성적 기준
                   </span>
-                  {!useProjectedGrade && (
+                  {searchMode === 'current' && (
                     <span className="text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">
                       탐색 반영 중
                     </span>
@@ -481,18 +508,28 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 예상 최종 5개 학기 평균 */}
+              {/* 오른쪽: 예상 최종 성적 기준 */}
               <div className={`p-6 rounded-2xl transition-all border ${
-                useProjectedGrade ? 'bg-slate-900/90 border-emerald-500/60 ring-2 ring-emerald-500/20' : 'bg-slate-900/40 border-slate-800'
+                searchMode === 'projected' 
+                  ? 'bg-slate-900/90 border-emerald-500/60 ring-2 ring-emerald-500/20 shadow-md' 
+                  : searchMode === 'goal_seek'
+                  ? 'bg-slate-900/90 border-amber-500/60 ring-2 ring-amber-500/20 shadow-md'
+                  : 'bg-slate-900/40 border-slate-800'
               }`}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-black tracking-wider uppercase text-emerald-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    예상 최종 성적 (1-1 ~ 3-1 5개 학기)
+                  <span className={`text-xs font-black tracking-wider uppercase flex items-center gap-1.5 ${
+                    searchMode === 'goal_seek' ? 'text-amber-400' : 'text-emerald-400'
+                  }`}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {searchMode === 'goal_seek' ? '목표 역산 기준 성적' : '예상 최종 성적 기준'}
                   </span>
-                  {useProjectedGrade && (
-                    <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full shadow-xs">
-                      탐색 반영 중
+                  {(searchMode === 'projected' || searchMode === 'goal_seek') && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      searchMode === 'goal_seek'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    }`}>
+                      {searchMode === 'goal_seek' ? '역산 모드 작동 중' : '탐색 반영 중'}
                     </span>
                   )}
                 </div>
@@ -502,7 +539,9 @@ export default function App() {
                     5등급제 <span className="text-white font-black">{semesterStatus.projectedGpa5.toFixed(3)}</span>등급
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl lg:text-5xl font-black tabular-nums tracking-tight text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.4)]">
+                    <span className={`text-4xl lg:text-5xl font-black tabular-nums tracking-tight drop-shadow-[0_0_15px_rgba(52,211,153,0.4)] ${
+                      searchMode === 'goal_seek' ? 'text-amber-400' : 'text-emerald-400'
+                    }`}>
                       {projectedConversion.grade9.toFixed(3)}
                     </span>
                     <span className="text-lg font-bold text-slate-400">등급 (9등급제 환산)</span>
@@ -514,9 +553,41 @@ export default function App() {
             {/* 하단 요약 정보 */}
             <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2 text-slate-400">
-                <span className="font-bold text-slate-300">남은 기회:</span>
-                <span>총 5개 학기 중 <strong className="text-emerald-400">{semesterStatus.remainingCount}개 학기</strong>의 성적이 남아있습니다.</span>
+                <span className="font-bold text-slate-300">현재 상태:</span>
+                <span>
+                  {searchMode === 'current' && '현재 이수한 성적으로 지원 가능한 적정 대학을 탐색합니다.'}
+                  {searchMode === 'projected' && '예상 최종 성적으로 지원 가능한 목표 대학을 탐색합니다.'}
+                  {searchMode === 'goal_seek' && `목표 대학 합격을 위해 남은 ${semesterStatus.remainingCount}개 학기 동안 필요한 등급을 각 카드에서 즉시 확인합니다.`}
+                </span>
               </div>
+              <div className="text-slate-400">
+                남은 기회: <strong className="text-emerald-400 font-bold">{semesterStatus.remainingCount}개 학기</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* 환산 방식 선택 */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <span className="text-xs font-bold text-slate-500">환산 산출 방식:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: 'mixed', name: '경기/부산/광주 평균' },
+                { id: 'gyeonggi', name: '경기진협' },
+                { id: 'busan', name: '부산시교육청' },
+                { id: 'gwangju', name: '광주시교육청' }
+              ].map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setConversionVersion(v.id as ConversionVersion)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    conversionVersion === v.id 
+                      ? 'bg-slate-900 text-white shadow-xs' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {v.name}
+                </button>
+              ))}
             </div>
           </div>
         </section>
@@ -526,17 +597,25 @@ export default function App() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-indigo-200/60">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-                  <span>예상 최종 성적 기준 지원 가능 대학</span>
-                </span>
-                
-                {ignoreGradeLimit ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 text-xs font-black rounded-lg border border-amber-200">
-                    <Unlock className="w-3.5 h-3.5" />
-                    등급 제한 없음 (전체 입결 조회 모드)
+                {searchMode === 'current' && (
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-500 text-slate-950 text-xs font-black rounded-xl shadow-xs">
+                    <span>현재 성적 기준 지원 가능 대학</span>
                   </span>
-                ) : (
+                )}
+                {searchMode === 'projected' && (
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-indigo-200/60">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>예상 최종 성적 기준 지원 가능 대학</span>
+                  </span>
+                )}
+                {searchMode === 'goal_seek' && (
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-amber-200/60">
+                    <Target className="w-3.5 h-3.5 text-amber-100" />
+                    <span>목표 대학 역산 모드 (등급 무관 전체 검색 + 남은 학기 필요 성적)</span>
+                  </span>
+                )}
+                
+                {searchMode !== 'goal_seek' && (
                   <>
                     <span className="text-sm font-black text-slate-900">
                       타겟 등급: <span className="text-indigo-600">{activeConversion.grade9.toFixed(2)}</span> 등급
@@ -548,42 +627,21 @@ export default function App() {
                 )}
               </div>
 
-              {/* 검색 옵션 토글 */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  onClick={() => setIgnoreGradeLimit(!ignoreGradeLimit)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all cursor-pointer ${
-                    ignoreGradeLimit 
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm' 
-                      : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-400 hover:bg-slate-50'
-                  }`}
-                >
-                  {ignoreGradeLimit ? (
-                    <>
-                      <Unlock className="w-3.5 h-3.5 text-white" />
-                      <span>등급 무관 전체 검색 ON</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>등급 무관 전체 검색</span>
-                    </>
+              {/* 검색 옵션 토글 (모드 1, 2일 때만 범위 표시) */}
+              {searchMode !== 'goal_seek' && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {isTopTierGrade && (
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={includeTopTier}
+                        onChange={(e) => setIncludeTopTier(e.target.checked)}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span>최상위 소신 포함 (1.00~)</span>
+                    </label>
                   )}
-                </button>
 
-                {!ignoreGradeLimit && isTopTierGrade && (
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={includeTopTier}
-                      onChange={(e) => setIncludeTopTier(e.target.checked)}
-                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
-                    />
-                    <span>최상위 소신 포함 (1.00~)</span>
-                  </label>
-                )}
-
-                {!ignoreGradeLimit && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-500">범위:</span>
                     <div className="flex bg-slate-100 p-0.5 rounded-lg">
@@ -600,8 +658,8 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* 대학/학과 검색창 */}
@@ -623,11 +681,11 @@ export default function App() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type="text"
-                  placeholder={ignoreGradeLimit ? "원하는 대학명 또는 학과명을 입력하세요 (모든 등급의 입결 조회 가능)..." : "대학명, 학과명, 전형명을 입력하세요... (예: 간호, 컴퓨터, 지역균형)"}
+                  placeholder={searchMode === 'goal_seek' ? "목표로 하는 대학명 또는 학과명을 입력하세요... (예: 서울대, 경영, 의예)" : "대학명, 학과명, 전형명을 입력하세요... (예: 간호, 컴퓨터, 지역균형)"}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`w-full pl-9 pr-4 py-2.5 border rounded-xl text-xs font-bold outline-none transition-all ${
-                    ignoreGradeLimit 
+                    searchMode === 'goal_seek' 
                       ? 'bg-amber-50/40 border-amber-300 focus:border-amber-500 focus:bg-white' 
                       : 'bg-slate-50 border-slate-200 focus:border-indigo-500 focus:bg-white'
                   }`}
@@ -666,14 +724,14 @@ export default function App() {
           <div className="flex items-center justify-between px-1">
             <p className="text-xs font-bold text-slate-500">
               검색된 모집단위: <strong className="text-indigo-600">{filteredRecords.length}</strong>개
+              {searchMode === 'goal_seek' && <span className="ml-2 text-amber-700 font-semibold">(목표 역산 모드)</span>}
             </p>
-            {selectedUniversity !== '전체' || selectedCategory !== '전체' || searchQuery !== '' || ignoreGradeLimit ? (
+            {selectedUniversity !== '전체' || selectedCategory !== '전체' || searchQuery !== '' ? (
               <button 
                 onClick={() => {
                   setSelectedUniversity('전체');
                   setSelectedCategory('전체');
                   setSearchQuery('');
-                  setIgnoreGradeLimit(false);
                 }}
                 className="text-[11px] font-bold text-slate-400 hover:text-indigo-600"
               >
@@ -682,7 +740,7 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* 컴팩트 카드 그리드 (3열) - 남은 학기 필요 등급 완벽 통합 */}
+          {/* 컴팩트 카드 그리드 (3열) - 남은 학기 필요 등급 연동 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredRecords.length > 0 ? (
               <>
@@ -731,20 +789,22 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* ★ 하단: 목표 달성을 위한 남은 학기 필요 등급 안내 바 */}
-                      <div className="pt-2 border-t border-slate-50 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 font-semibold flex items-center gap-1">
+                      {/* 하단: 선택된 이수 학기 기준 남은 학기 필요 등급 안내 바 */}
+                      <div className={`pt-2 border-t flex items-center justify-between text-[11px] ${
+                        searchMode === 'goal_seek' ? 'bg-amber-50/50 -mx-4 -mb-3.5 px-4 py-2 rounded-b-2xl border-amber-100' : 'border-slate-50'
+                      }`}>
+                        <span className="text-slate-600 font-semibold flex items-center gap-1">
                           <Target className="w-3 h-3 text-indigo-600" />
                           남은 {goalInfo.remainingCount}개 학기 목표선:
                         </span>
                         <div className="font-black">
                           {reqGrade < 1.0 ? (
                             <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                              올 1.00 필요 (도전적)
+                              올 1.00 필요 (극소신)
                             </span>
                           ) : reqGrade > 5.0 ? (
                             <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              현재 성적 유지 시 안정권
+                              현 성적 유지 시 안정권
                             </span>
                           ) : (
                             <span className="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
@@ -774,14 +834,8 @@ export default function App() {
                 <Search className="w-8 h-8 text-slate-300 mx-auto" />
                 <h3 className="text-base font-bold text-slate-800">해당 조건의 대학이 없습니다</h3>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                  상단의 <strong className="text-amber-600 font-bold">[등급 무관 전체 검색]</strong> 버튼을 누르면 성적에 구애받지 않고 모든 대학을 검색할 수 있습니다.
+                  상단의 <strong className="text-amber-600 font-bold">[목표 대학 역산]</strong> 탭을 누르면 등급 제한 없이 모든 대학을 검색하고 필요 등급을 산출할 수 있습니다.
                 </p>
-                <button 
-                  onClick={() => setIgnoreGradeLimit(true)}
-                  className="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-xs"
-                >
-                  등급 무관 전체 검색 켜기 🔓
-                </button>
               </div>
             )}
           </div>
