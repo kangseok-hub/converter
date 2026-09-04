@@ -12,7 +12,6 @@ import {
   Settings,
   Stethoscope,
   GraduationCap as EducationIcon,
-  TrendingUp,
   RotateCcw,
   Sparkles
 } from 'lucide-react';
@@ -41,7 +40,7 @@ export default function App() {
     sem2_2: '',
     sem3_1: ''
   });
-  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본을 예상 성적으로 적용
+  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준
 
   // gpa5 변경 시 입력창 동기화
   useEffect(() => {
@@ -324,7 +323,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 성적 비교 및 탐색 기준 선택 바 */}
+          {/* 성적 비교 및 탐색 기준 선택 바 (한 줄 가로 배치 완성) */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-center sm:text-left w-full md:w-auto">
               <div>
@@ -355,11 +354,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* 탐색 기준 선택 토글 */}
-            <div className="inline-flex bg-slate-200/80 p-1 rounded-xl w-full md:w-auto justify-center">
+            {/* 탐색 기준 선택 토글 (줄바꿈 없이 한 줄 유지) */}
+            <div className="inline-flex bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto shrink-0 justify-center gap-1">
               <button
                 onClick={() => setUseProjectedGrade(false)}
-                className={`flex-1 md:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                   !useProjectedGrade ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -367,12 +366,12 @@ export default function App() {
               </button>
               <button
                 onClick={() => setUseProjectedGrade(true)}
-                className={`flex-1 md:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   useProjectedGrade ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                예상 최종 성적 기준 (적용 중)
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span>예상 최종 성적 기준 (적용 중)</span>
               </button>
             </div>
           </div>
@@ -612,7 +611,7 @@ export default function App() {
                   <div className="col-span-full text-center py-6">
                     <button
                       onClick={() => setDisplayLimit(prev => prev + 90)}
-                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
+                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                     >
                       결과 더보기 ({Math.min(displayLimit, filteredRecords.length)} / {filteredRecords.length})
                     </button>
@@ -624,16 +623,16 @@ export default function App() {
                 <Search className="w-8 h-8 text-slate-300 mx-auto" />
                 <h3 className="text-base font-bold text-slate-800">해당 조건의 대학이 없습니다</h3>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                  검색 범위를 넓히거나(±0.3) '소신 포함' 체크박스를 켜보세요.
+                  검색 범위를 넓히거나(±0.2 이상) '소신 포함' 체크박스를 켜보세요.
                 </p>
                 <button 
                   onClick={() => {
-                    setSearchRange(0.3);
+                    setSearchRange(0.2);
                     setShowAmbitious(true);
                   }}
                   className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors"
                 >
-                  검색 범위 ±0.3으로 확대
+                  검색 범위 ±0.2로 확대
                 </button>
               </div>
             )}
