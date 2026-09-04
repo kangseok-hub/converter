@@ -14,7 +14,8 @@ import {
   GraduationCap as EducationIcon,
   RotateCcw,
   Sparkles,
-  Compass
+  Compass,
+  CheckCircle2
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
@@ -41,6 +42,7 @@ export default function App() {
     sem3_1: ''
   });
   const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준
+  const [includeTopTier, setIncludeTopTier] = useState<boolean>(true); // 최상위 1.0~1.3 소신 포함 권장 설정
 
   // gpa5 변경 시 입력창 동기화
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function App() {
   // 검색 조건 변경 시 카드 표시 개수 초기화
   useEffect(() => {
     setDisplayLimit(90);
-  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade]);
+  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade, includeTopTier]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -100,6 +102,19 @@ export default function App() {
     return useProjectedGrade ? projection.projectedConversion : currentConversion;
   }, [useProjectedGrade, projection.projectedConversion, currentConversion]);
 
+  // 1.0~1.3대 최상위 소신 개방 권장 설정 적용 계산
+  const isTopTierGrade = activeConversion.grade9 <= 1.55;
+  const lowerBound = useMemo(() => {
+    if (isTopTierGrade && includeTopTier) {
+      return 1.00; // 최상위권(1.55 이하)에서 소신 개방 시 1.00까지 오픈
+    }
+    return Math.max(1.00, activeConversion.grade9 - searchRange);
+  }, [activeConversion.grade9, searchRange, isTopTierGrade, includeTopTier]);
+
+  const upperBound = useMemo(() => {
+    return activeConversion.grade9 + searchRange;
+  }, [activeConversion.grade9, searchRange]);
+
   // 키보드로 등급 직접 입력
   const handleInputChange = (val: string) => {
     setInputGpa(val);
@@ -132,12 +147,8 @@ export default function App() {
     setShowCalculator(false);
   };
 
-  // 정확한 검색 범위(±searchRange) 적용
+  // 계열별 모집단위 개수 계산
   const categoryCounts = useMemo(() => {
-    const targetGrade = activeConversion.grade9;
-    const lowerBound = targetGrade - searchRange;
-    const upperBound = targetGrade + searchRange;
-
     const baseFiltered = allRecords.filter(record => {
       const gradeMatch = record.averageGrade >= lowerBound && record.averageGrade <= upperBound;
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
@@ -152,13 +163,10 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, activeConversion.grade9, searchRange, selectedUniversity, searchQuery]);
+  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery]);
 
+  // 최종 필터링된 결과
   const filteredRecords = useMemo(() => {
-    const targetGrade = activeConversion.grade9;
-    const lowerBound = targetGrade - searchRange;
-    const upperBound = targetGrade + searchRange;
-    
     return allRecords.filter(record => {
       const gradeMatch = record.averageGrade >= lowerBound && record.averageGrade <= upperBound;
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
@@ -169,12 +177,12 @@ export default function App() {
       
       return gradeMatch && categoryMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, activeConversion.grade9, selectedCategory, searchQuery, searchRange, selectedUniversity]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
-    if (diff < -0.05) return { label: '소신', color: 'bg-rose-50 text-rose-600 border-rose-200' };
-    if (diff > 0.05) return { label: '안정', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
+    if (diff < -0.10) return { label: '소신', color: 'bg-rose-50 text-rose-600 border-rose-200' };
+    if (diff > 0.10) return { label: '안정', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
     return { label: '적정', color: 'bg-blue-50 text-blue-600 border-blue-200' };
   };
 
@@ -281,7 +289,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 향후 학기별 예상 등급 */}
+            {/* 향후 학기별 예상 등급 (파스텔 민트/에메랄드 톤 구별) */}
             <div className="lg:col-span-7 bg-emerald-50/50 p-5 rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
@@ -330,7 +338,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 핵심 성적 비교 대시보드 */}
+          {/* 핵심 성적 비교 대시보드 (블랙 배경 + 초대형 화이트/네온 폰트 강조) */}
           <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div className="space-y-1">
@@ -527,7 +535,7 @@ export default function App() {
         <section className="space-y-6">
           {/* 상단 타겟 안내 및 필터 바 */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* 강조 배지 (예상 최종 성적 기준 지원 가능 대학) */}
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-indigo-200/60">
@@ -537,29 +545,56 @@ export default function App() {
                 <span className="text-sm font-black text-slate-900">
                   타겟 등급: <span className="text-indigo-600">{activeConversion.grade9.toFixed(2)}</span> 등급
                 </span>
-                <span className="text-xs text-slate-400 font-medium">
-                  (추천 범위: {(activeConversion.grade9 - searchRange).toFixed(2)} ~ {(activeConversion.grade9 + searchRange).toFixed(2)})
+                <span className="text-xs text-slate-500 font-medium">
+                  (추천 범위: <strong className="text-slate-800">{lowerBound.toFixed(2)} ~ {upperBound.toFixed(2)}</strong>)
                 </span>
               </div>
 
-              {/* 검색 범위 선택 */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-500 mr-1">검색 범위:</span>
-                <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                  {[0.1, 0.2, 0.3].map(r => (
-                    <button 
-                      key={r}
-                      onClick={() => setSearchRange(r)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                        searchRange === r ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      ±{r}
-                    </button>
-                  ))}
+              {/* 검색 옵션: 최상위 소신 개방 토글 & 검색 범위 */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* 최상위 1.0~1.34 소신 지원 개방 권장 설정 버튼 */}
+                {isTopTierGrade && (
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={includeTopTier}
+                      onChange={(e) => setIncludeTopTier(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>최상위 소신 포함 (1.00~)</span>
+                  </label>
+                )}
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">검색 범위:</span>
+                  <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                    {[0.1, 0.2, 0.3].map(r => (
+                      <button 
+                        key={r}
+                        onClick={() => setSearchRange(r)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                          searchRange === r ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        ±{r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* 최상위권(1.55 이하) 학생을 위한 친절한 지도 안내 팁 배너 */}
+            {isTopTierGrade && includeTopTier && (
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-indigo-900">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💡</span>
+                  <span>
+                    <strong>최상위권 권장 설정 적용 중:</strong> 5등급제 1등급대 학생의 수시 지원 특성을 고려하여 <strong>9등급제 1.00 ~ 1.34구간(의약학·서울대·연고대 등 370여 개 학과)</strong>이 소신 지원선으로 함께 개방되었습니다.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* 대학/학과 검색창 */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1">
