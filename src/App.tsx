@@ -13,7 +13,9 @@ import {
   Stethoscope,
   GraduationCap as EducationIcon,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Compass,
+  ArrowRight
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
@@ -40,7 +42,7 @@ export default function App() {
     sem2_2: '',
     sem3_1: ''
   });
-  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준
+  const [useProjectedGrade, setUseProjectedGrade] = useState<boolean>(true); // 기본: 예상 성적 기준 탐색
 
   // gpa5 변경 시 입력창 동기화
   useEffect(() => {
@@ -190,17 +192,22 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50/70 font-sans text-slate-900 antialiased">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-xs">
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-xs">
-              <GraduationCap className="text-white w-5 h-5" />
+            <div className="bg-gradient-to-tr from-indigo-700 to-indigo-500 p-2 rounded-xl shadow-xs">
+              <Compass className="text-white w-5 h-5 animate-spin-slow" />
             </div>
             <div>
-              <h1 className="font-serif italic font-black text-xl tracking-tight text-slate-900 leading-none">
-                9등급 환산 적정 대학 찾기
-              </h1>
-              <p className="text-[10px] text-indigo-600 font-bold tracking-widest mt-1">2026학년도 수시 입결 자료</p>
+              <div className="flex items-baseline gap-2">
+                <h1 className="font-serif italic font-black text-xl tracking-tight text-slate-900 leading-none">
+                  나침반 5to9
+                </h1>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Compass 5to9</span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-bold tracking-tight mt-1">
+                5등급제 내신 환산 및 2026 수시 지원선 예측기
+              </p>
             </div>
           </div>
           <div className="text-right">
@@ -217,11 +224,11 @@ export default function App() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-slate-900">성적 입력 및 예측</h2>
-              <p className="text-xs text-slate-500 mt-0.5">현재 내신과 향후 예상 등급을 바탕으로 2026 수시 지원선을 도출합니다.</p>
+              <p className="text-xs text-slate-500 mt-0.5">현재 내신과 향후 학기별 예상 등급을 설정하여 최종 성적을 시뮬레이션합니다.</p>
             </div>
             <button 
               onClick={() => setShowCalculator(!showCalculator)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all self-start md:self-auto"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all self-start md:self-auto shadow-xs"
             >
               <Calculator className="w-3.5 h-3.5" />
               과목별 등급 계산기
@@ -234,7 +241,7 @@ export default function App() {
             <div className="lg:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-500">1학년 1학기 (현재 등급)</span>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">직접 입력 가능</span>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">직접 입력 가능 ✍️</span>
               </div>
 
               <div className="flex items-baseline gap-2">
@@ -244,7 +251,7 @@ export default function App() {
                   value={inputGpa}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onBlur={handleInputBlur}
-                  className="w-36 text-3xl font-black text-indigo-600 tabular-nums bg-white border-2 border-slate-200 focus:border-indigo-600 rounded-xl px-3 py-1 outline-none transition-all"
+                  className="w-36 text-3xl font-black text-indigo-600 tabular-nums bg-white border-2 border-slate-200 focus:border-indigo-600 rounded-xl px-3 py-1 outline-none transition-all shadow-inner"
                 />
                 <span className="text-base font-bold text-slate-400">등급 (5등급제)</span>
               </div>
@@ -266,7 +273,7 @@ export default function App() {
                     type="button"
                     onClick={() => setGpa5(v)}
                     className={`py-1 text-xs font-bold rounded-lg transition-colors ${
-                      Math.abs(gpa5 - v) < 0.25 ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'
+                      Math.abs(gpa5 - v) < 0.25 ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     {v}.0
@@ -275,7 +282,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 향후 학기별 예상 등급 (파스텔 민트/에메랄드 톤으로 구별) */}
+            {/* 향후 학기별 예상 등급 (파스텔 민트/에메랄드 톤 구별) */}
             <div className="lg:col-span-7 bg-emerald-50/50 p-5 rounded-2xl border border-emerald-200/80 shadow-xs space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
@@ -285,14 +292,14 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setFutureGrades({ sem1_2: '', sem2_1: '', sem2_2: '', sem3_1: '' })}
-                  className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
+                  className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
                   초기화
                 </button>
               </div>
 
-              <p className="text-[11px] text-emerald-800/80">
+              <p className="text-[11px] text-emerald-800/80 font-medium">
                 빈칸으로 둔 학기는 <span className="font-bold text-emerald-700">현재 성적({gpa5.toFixed(2)})</span>으로 자동 반영됩니다.
               </p>
 
@@ -314,7 +321,7 @@ export default function App() {
                         value={val}
                         onChange={(e) => setFutureGrades({ ...futureGrades, [key]: e.target.value })}
                         className={`w-full py-1 text-center text-base font-black rounded-lg border outline-none transition-all ${
-                          val !== '' ? 'bg-emerald-50/70 border-emerald-500 text-emerald-800' : 'border-slate-200 text-slate-400 placeholder:text-slate-300 focus:border-emerald-400'
+                          val !== '' ? 'bg-emerald-50/80 border-emerald-500 text-emerald-800 font-black' : 'border-slate-200 text-slate-400 placeholder:text-slate-300 focus:border-emerald-400'
                         }`}
                       />
                     </div>
@@ -324,62 +331,140 @@ export default function App() {
             </div>
           </div>
 
-          {/* 성적 비교 및 탐색 기준 선택 바 */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-center sm:text-left w-full md:w-auto">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">현재 성적 (1-1)</span>
-                <p className="text-sm font-bold text-slate-700 mt-0.5">
-                  5등급제 <strong className="text-slate-900">{gpa5.toFixed(3)}</strong> → 9등급제 <strong className="text-indigo-600">{currentConversion.grade9.toFixed(3)}</strong>
-                </p>
+          {/* ★ 핵심 성적 비교 대시보드 (블랙 배경 + 초대형 화이트/네온 폰트 강조) */}
+          <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
+            {/* 상단 레이블 & 탐색 기준 토글 */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-indigo-400">Core Grade Comparison</span>
+                </div>
+                <h3 className="text-lg md:text-xl font-serif italic font-black tracking-tight text-white">
+                  내신 성적 및 9등급제 환산 결과 비교
+                </h3>
               </div>
 
-              <div>
-                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">예상 최종 (1-1 ~ 3-1)</span>
-                <p className="text-sm font-bold text-slate-700 mt-0.5">
-                  5등급제 <strong className="text-slate-900">{projection.projectedGpa5.toFixed(3)}</strong> → 9등급제 <strong className="text-indigo-600">{projection.projectedConversion.grade9.toFixed(3)}</strong>
-                </p>
-              </div>
-
-              <div className="col-span-2 sm:col-span-1 border-t sm:border-t-0 pt-2 sm:pt-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">변동폭</span>
-                <p className="text-xs font-black mt-1">
-                  {projection.diffGpa5 === 0 ? (
-                    <span className="text-slate-400">변동 없음</span>
-                  ) : projection.diffGpa5 < 0 ? (
-                    <span className="text-emerald-600">▲ {Math.abs(projection.diffGpa5).toFixed(3)}등급 향상</span>
-                  ) : (
-                    <span className="text-rose-500">▼ {projection.diffGpa5.toFixed(3)}등급 하락</span>
-                  )}
-                </p>
+              {/* 탐색 기준 선택 토글 (줄바꿈 없이 한 줄 유지) */}
+              <div className="inline-flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shrink-0 gap-1.5">
+                <button
+                  onClick={() => setUseProjectedGrade(false)}
+                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                    !useProjectedGrade 
+                      ? 'bg-white text-slate-900 shadow-md shadow-white/10' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  현재 성적 기준 탐색
+                </button>
+                <button
+                  onClick={() => setUseProjectedGrade(true)}
+                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                    useProjectedGrade 
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-300' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                  <span>예상 최종 성적 기준 (적용 중)</span>
+                </button>
               </div>
             </div>
 
-            {/* 탐색 기준 선택 토글 (한 줄 유지) */}
-            <div className="inline-flex bg-slate-200/80 p-1 rounded-xl w-full sm:w-auto shrink-0 justify-center gap-1">
-              <button
-                onClick={() => setUseProjectedGrade(false)}
-                className={`whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  !useProjectedGrade ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                현재 성적 기준
-              </button>
-              <button
-                onClick={() => setUseProjectedGrade(true)}
-                className={`whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  useProjectedGrade ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                <span>예상 최종 성적 기준 (적용 중)</span>
-              </button>
+            {/* 메인 2분할 대형 점수 표시 영역 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-center">
+              {/* 왼쪽: 현재 성적 (1-1) */}
+              <div className={`p-6 rounded-2xl transition-all border ${
+                !useProjectedGrade 
+                  ? 'bg-slate-900/90 border-cyan-500/50 ring-2 ring-cyan-500/20' 
+                  : 'bg-slate-900/40 border-slate-800'
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black tracking-wider uppercase text-cyan-300 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                    현재 성적 (1-1 단일)
+                  </span>
+                  {!useProjectedGrade && (
+                    <span className="text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                      탐색 반영 중
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-slate-400">
+                    5등급제 <span className="text-white font-black">{gpa5.toFixed(3)}</span>등급
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl lg:text-5xl font-black tabular-nums tracking-tight text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.3)]">
+                      {currentConversion.grade9.toFixed(3)}
+                    </span>
+                    <span className="text-lg font-bold text-slate-400">등급 (9등급제 환산)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 오른쪽: 예상 최종 (1-1 ~ 3-1) */}
+              <div className={`p-6 rounded-2xl transition-all border ${
+                useProjectedGrade 
+                  ? 'bg-slate-900/90 border-emerald-500/60 ring-2 ring-emerald-500/20' 
+                  : 'bg-slate-900/40 border-slate-800'
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black tracking-wider uppercase text-emerald-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    예상 최종 (1-1 ~ 3-1 평균)
+                  </span>
+                  {useProjectedGrade && (
+                    <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full shadow-xs">
+                      탐색 반영 중
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-slate-400">
+                    5등급제 <span className="text-white font-black">{projection.projectedGpa5.toFixed(3)}</span>등급
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl lg:text-5xl font-black tabular-nums tracking-tight text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.4)]">
+                      {projection.projectedConversion.grade9.toFixed(3)}
+                    </span>
+                    <span className="text-lg font-bold text-slate-400">등급 (9등급제 환산)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 하단 요약 정보 및 변동폭 바 */}
+            <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-400">
+                <span className="font-bold text-slate-300">환산 근거:</span>
+                <span className="line-clamp-1">{activeConversion.reason}</span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-slate-400 font-bold">환산 성적 변동폭:</span>
+                {projection.diffGrade9 === 0 ? (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-black">
+                    변동 없음 (0.000)
+                  </span>
+                ) : projection.diffGrade9 < 0 ? (
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black flex items-center gap-1">
+                    ▲ {Math.abs(projection.diffGrade9).toFixed(3)}등급 향상 (유리)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 font-black flex items-center gap-1">
+                    ▼ {projection.diffGrade9.toFixed(3)}등급 하락
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* 환산 버전 선택 */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-            <span className="text-xs font-bold text-slate-500">환산 산출 방식:</span>
+            <span className="text-xs font-bold text-slate-500">환산 산출 방식 선택:</span>
             <div className="flex flex-wrap gap-1.5">
               {[
                 { id: 'mixed', name: '경기/부산/광주 평균' },
@@ -390,9 +475,9 @@ export default function App() {
                 <button
                   key={v.id}
                   onClick={() => setConversionVersion(v.id as ConversionVersion)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     conversionVersion === v.id 
-                      ? 'bg-slate-900 text-white' 
+                      ? 'bg-slate-900 text-white shadow-xs' 
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -431,7 +516,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={calculateGPA}
-                  className="w-full bg-indigo-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all"
+                  className="w-full bg-indigo-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-xs"
                 >
                   계산 결과 적용하기
                 </button>
@@ -447,7 +532,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* 강조 배지 (예상 최종 성적 기준 지원 가능 대학) */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-indigo-200/60">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-black rounded-xl shadow-xs ring-2 ring-indigo-200/60">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
                   <span>예상 최종 성적 기준 지원 가능 대학</span>
                 </span>
@@ -614,7 +699,7 @@ export default function App() {
                   <div className="col-span-full text-center py-6">
                     <button
                       onClick={() => setDisplayLimit(prev => prev + 90)}
-                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
+                      className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                     >
                       결과 더보기 ({Math.min(displayLimit, filteredRecords.length)} / {filteredRecords.length})
                     </button>
