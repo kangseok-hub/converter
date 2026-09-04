@@ -459,19 +459,16 @@ export default function App() {
                 })}
               </div>
 
-              {/* ★ 학기별 세부 성적 입력 밑으로 이동된 안내 멘트 (왼쪽 화살표 적용) */}
-              <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl p-2.5 flex items-center gap-2 text-[11px] text-indigo-950 leading-snug mt-3">
-                <span className="flex items-center gap-1 font-black text-indigo-600 shrink-0 bg-indigo-100/80 px-1.5 py-0.5 rounded">
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>연동 안내</span>
-                </span>
-                <span>
-                  왼쪽 슬라이더를 조작하면 현재 이수한 <strong className="text-indigo-700 font-black">1-1 ~ {completedSemester}학기</strong> 성적이 
-                  <strong className="text-indigo-700 font-black"> {sliderGpa.toFixed(2)}등급</strong>으로 자동 일괄 기록됩니다.
-                </span>
-              </div>
-            </div>
-          </div>
+{/* 학기별 세부 성적 입력 밑 안내 멘트 (한 줄 완성) */}
+<div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 flex items-center gap-2 text-[11px] text-indigo-950 mt-3 overflow-x-auto whitespace-nowrap">
+  <span className="flex items-center gap-1 font-black text-indigo-600 shrink-0 bg-indigo-100/80 px-1.5 py-0.5 rounded">
+    <ArrowLeft className="w-3.5 h-3.5" />
+    <span>연동 안내</span>
+  </span>
+  <span className="whitespace-nowrap">
+    왼쪽 슬라이더를 조작하면 현재 이수한 <strong className="text-indigo-700 font-black">1-1 ~ {completedSemester}학기</strong> 성적이 <strong className="text-indigo-700 font-black">{sliderGpa.toFixed(2)}등급</strong>으로 자동 일괄 기록됩니다.
+  </span>
+</div>
 
           {/* 메인 블랙 대시보드 및 3대 핵심 모드 탭 */}
           <div className="relative overflow-hidden bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-800 space-y-6">
