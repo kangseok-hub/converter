@@ -382,7 +382,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black tracking-wider uppercase text-cyan-300 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                    현재 성적 (1-1 단일)
+                    현재 성적 (현재 성적)
                   </span>
                   {!useProjectedGrade && (
                     <span className="text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">
