@@ -292,8 +292,8 @@ export default function App() {
               </p>
             </div>
 
-            {/* 현재 이수 학기 선택 토글 바 */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl shrink-0 overflow-x-auto">
+            {/* 현재 이수 학기 선택 토글 바 (한 줄 완성) */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl shrink-0">
               <span className="text-xs font-bold text-slate-600 px-2 flex items-center gap-1 whitespace-nowrap">
                 <Calendar className="w-3.5 h-3.5 text-indigo-600" />
                 현재 이수 학기:
@@ -457,13 +457,13 @@ export default function App() {
                 })}
               </div>
 
-              {/* 안내 멘트 (한 줄 유지) */}
-              <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 flex items-center gap-2 text-[11px] text-indigo-950 mt-3 overflow-x-auto whitespace-nowrap">
-                <span className="flex items-center gap-1 font-black text-indigo-600 shrink-0 bg-indigo-100/80 px-1.5 py-0.5 rounded">
-                  <ArrowLeft className="w-3.5 h-3.5" />
+              {/* 안내 멘트 (가로 스크롤바 삭제 및 글씨 축소 한 줄 배치) */}
+              <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-[10px] text-indigo-950 mt-3 whitespace-nowrap">
+                <span className="flex items-center gap-0.5 font-black text-indigo-600 shrink-0 bg-indigo-100/80 px-1.5 py-0.5 rounded text-[9px]">
+                  <ArrowLeft className="w-3 h-3" />
                   <span>연동 안내</span>
                 </span>
-                <span className="whitespace-nowrap">
+                <span className="truncate">
                   왼쪽 슬라이더를 조작하면 현재 이수한 <strong className="text-indigo-700 font-black">1-1 ~ {completedSemester}학기</strong> 성적이 <strong className="text-indigo-700 font-black">{sliderGpa.toFixed(2)}등급</strong>으로 자동 일괄 기록됩니다.
                 </span>
               </div>
