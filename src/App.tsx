@@ -15,7 +15,8 @@ import {
   RotateCcw,
   Sparkles,
   Compass,
-  CheckCircle2
+  Unlock,
+  Lock
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
 import { rawCSV } from './data/rawCSV';
@@ -33,6 +34,7 @@ export default function App() {
   const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
   const [displayLimit, setDisplayLimit] = useState<number>(90);
+  const [ignoreGradeLimit, setIgnoreGradeLimit] = useState<boolean>(false); // 등급 무관 자유 검색 모드
 
   // 학기별 예상 등급 상태
   const [futureGrades, setFutureGrades] = useState({
@@ -52,7 +54,7 @@ export default function App() {
   // 검색 조건 변경 시 카드 표시 개수 초기화
   useEffect(() => {
     setDisplayLimit(90);
-  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade, includeTopTier]);
+  }, [gpa5, conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, futureGrades, useProjectedGrade, includeTopTier, ignoreGradeLimit]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -106,7 +108,7 @@ export default function App() {
   const isTopTierGrade = activeConversion.grade9 <= 1.55;
   const lowerBound = useMemo(() => {
     if (isTopTierGrade && includeTopTier) {
-      return 1.00; // 최상위권(1.55 이하)에서 소신 개방 시 1.00까지 오픈
+      return 1.00;
     }
     return Math.max(1.00, activeConversion.grade9 - searchRange);
   }, [activeConversion.grade9, searchRange, isTopTierGrade, includeTopTier]);
@@ -150,7 +152,7 @@ export default function App() {
   // 계열별 모집단위 개수 계산
   const categoryCounts = useMemo(() => {
     const baseFiltered = allRecords.filter(record => {
-      const gradeMatch = record.averageGrade >= lowerBound && record.averageGrade <= upperBound;
+      const gradeMatch = ignoreGradeLimit || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
       const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,12 +165,12 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery]);
+  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery, ignoreGradeLimit]);
 
   // 최종 필터링된 결과
   const filteredRecords = useMemo(() => {
     return allRecords.filter(record => {
-      const gradeMatch = record.averageGrade >= lowerBound && record.averageGrade <= upperBound;
+      const gradeMatch = ignoreGradeLimit || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
       const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -177,7 +179,7 @@ export default function App() {
       
       return gradeMatch && categoryMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity, ignoreGradeLimit]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
@@ -542,18 +544,50 @@ export default function App() {
                   <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
                   <span>예상 최종 성적 기준 지원 가능 대학</span>
                 </span>
-                <span className="text-sm font-black text-slate-900">
-                  타겟 등급: <span className="text-indigo-600">{activeConversion.grade9.toFixed(2)}</span> 등급
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  (추천 범위: <strong className="text-slate-800">{lowerBound.toFixed(2)} ~ {upperBound.toFixed(2)}</strong>)
-                </span>
+                
+                {ignoreGradeLimit ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 text-xs font-black rounded-lg border border-amber-200">
+                    <Unlock className="w-3.5 h-3.5" />
+                    등급 제한 없음 (전체 입결 조회 모드)
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-sm font-black text-slate-900">
+                      타겟 등급: <span className="text-indigo-600">{activeConversion.grade9.toFixed(2)}</span> 등급
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      (추천 범위: <strong className="text-slate-800">{lowerBound.toFixed(2)} ~ {upperBound.toFixed(2)}</strong>)
+                    </span>
+                  </>
+                )}
               </div>
 
-              {/* 검색 옵션: 최상위 소신 개방 토글 & 검색 범위 */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* 최상위 1.0~1.34 소신 지원 개방 권장 설정 버튼 */}
-                {isTopTierGrade && (
+              {/* 검색 옵션: 등급 무관 자유 검색 토글 & 최상위 소신 & 검색 범위 */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* ★ 등급에 상관없이 원하는 대학/학과를 찾을 수 있는 장치 */}
+                <button
+                  onClick={() => setIgnoreGradeLimit(!ignoreGradeLimit)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all cursor-pointer ${
+                    ignoreGradeLimit 
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm' 
+                      : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-400 hover:bg-slate-50'
+                  }`}
+                >
+                  {ignoreGradeLimit ? (
+                    <>
+                      <Unlock className="w-3.5 h-3.5 text-white" />
+                      <span>등급 무관 전체 검색 ON</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>등급 무관 전체 검색</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 최상위 1.0~1.34 소신 지원 개방 권장 설정 버튼 (등급 제한 모드일 때만 동작) */}
+                {!ignoreGradeLimit && isTopTierGrade && (
                   <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors">
                     <input 
                       type="checkbox" 
@@ -565,27 +599,29 @@ export default function App() {
                   </label>
                 )}
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">검색 범위:</span>
-                  <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                    {[0.1, 0.2, 0.3].map(r => (
-                      <button 
-                        key={r}
-                        onClick={() => setSearchRange(r)}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                          searchRange === r ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                      >
-                        ±{r}
-                      </button>
-                    ))}
+                {!ignoreGradeLimit && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-500">범위:</span>
+                    <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                      {[0.1, 0.2, 0.3].map(r => (
+                        <button 
+                          key={r}
+                          onClick={() => setSearchRange(r)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                            searchRange === r ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          ±{r}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* 최상위권(1.55 이하) 학생을 위한 친절한 지도 안내 팁 배너 */}
-            {isTopTierGrade && includeTopTier && (
+            {!ignoreGradeLimit && isTopTierGrade && includeTopTier && (
               <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-indigo-900">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
@@ -615,10 +651,14 @@ export default function App() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type="text"
-                  placeholder="대학명, 학과명, 전형명을 입력하세요... (예: 간호, 컴퓨터, 지역균형)"
+                  placeholder={ignoreGradeLimit ? "원하는 대학명 또는 학과명을 입력하세요 (모든 등급의 입결 조회 가능)..." : "대학명, 학과명, 전형명을 입력하세요... (예: 간호, 컴퓨터, 지역균형)"}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                  className={`w-full pl-9 pr-4 py-2.5 border rounded-xl text-xs font-bold outline-none transition-all ${
+                    ignoreGradeLimit 
+                      ? 'bg-amber-50/40 border-amber-300 focus:border-amber-500 focus:bg-white' 
+                      : 'bg-slate-50 border-slate-200 focus:border-indigo-500 focus:bg-white'
+                  }`}
                 />
               </div>
             </div>
@@ -654,13 +694,15 @@ export default function App() {
           <div className="flex items-center justify-between px-1">
             <p className="text-xs font-bold text-slate-500">
               검색된 모집단위: <strong className="text-indigo-600">{filteredRecords.length}</strong>개
+              {ignoreGradeLimit && <span className="ml-2 text-amber-700 font-semibold">(등급 제한 없음)</span>}
             </p>
-            {selectedUniversity !== '전체' || selectedCategory !== '전체' || searchQuery !== '' ? (
+            {selectedUniversity !== '전체' || selectedCategory !== '전체' || searchQuery !== '' || ignoreGradeLimit ? (
               <button 
                 onClick={() => {
                   setSelectedUniversity('전체');
                   setSelectedCategory('전체');
                   setSearchQuery('');
+                  setIgnoreGradeLimit(false);
                 }}
                 className="text-[11px] font-bold text-slate-400 hover:text-indigo-600"
               >
@@ -675,6 +717,7 @@ export default function App() {
               <>
                 {filteredRecords.slice(0, displayLimit).map((record, index) => {
                   const diff = getDifficulty(record.averageGrade, activeConversion.grade9);
+                  const gradeDiffNum = record.averageGrade - activeConversion.grade9;
                   return (
                     <div
                       key={`${record.university}-${record.department}-${record.admissionName}-${index}`}
@@ -700,12 +743,17 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* 하단: 전형명 + 상태 뱃지 */}
+                      {/* 하단: 전형명 + 상태 뱃지 및 격차 표시 */}
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                        <span className="text-[11px] font-semibold text-slate-500 truncate max-w-[190px]">
+                        <span className="text-[11px] font-semibold text-slate-500 truncate max-w-[170px]">
                           {record.admissionName}
                         </span>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {ignoreGradeLimit && (
+                            <span className={`text-[10px] font-black ${gradeDiffNum <= 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                              {gradeDiffNum > 0 ? `+${gradeDiffNum.toFixed(2)}` : gradeDiffNum.toFixed(2)}
+                            </span>
+                          )}
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">
                             {record.category}
                           </span>
@@ -735,13 +783,13 @@ export default function App() {
                 <Search className="w-8 h-8 text-slate-300 mx-auto" />
                 <h3 className="text-base font-bold text-slate-800">해당 조건의 대학이 없습니다</h3>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                  검색 범위를 넓히거나(±0.2 이상) 다른 계열을 선택해 보세요.
+                  상단의 <strong className="text-amber-600 font-bold">[등급 무관 전체 검색]</strong> 버튼을 누르면 성적에 구애받지 않고 모든 대학을 검색할 수 있습니다.
                 </p>
                 <button 
-                  onClick={() => setSearchRange(0.2)}
-                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors"
+                  onClick={() => setIgnoreGradeLimit(true)}
+                  className="px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors shadow-xs"
                 >
-                  검색 범위 ±0.2로 확대
+                  등급 무관 전체 검색 켜기 🔓
                 </button>
               </div>
             )}
