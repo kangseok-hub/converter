@@ -90,10 +90,12 @@ export default function App() {
     return map[completedSemester];
   }, [completedSemester]);
 
-  // 슬라이더 조작 시: 선택된 이수 학기에 일괄 반영
-  const handleSliderChange = (val: number) => {
+  // 슬라이더 GPA 값을 성적 상태에 반영 (입력창 텍스트는 건드리지 않음).
+  // 타이핑 도중에는 이 함수만 써서, 사용자가 입력 중인 문자열이
+  // 매 키 입력마다 toFixed(3) 형식으로 되돌아가며 커서/문자 순서가
+  // 꼬이는 문제(예: "1.9" 입력 시 "1.001"이 되는 버그)를 방지한다.
+  const applyGpaValue = (val: number) => {
     setSliderGpa(val);
-    setSliderInput(val.toFixed(3));
 
     const formatted = val.toFixed(2);
     setGrades(prev => {
@@ -106,11 +108,20 @@ export default function App() {
     });
   };
 
+  // 슬라이더 드래그 / 프리셋 버튼(1.0~5.0) / 등급 계산기 결과처럼
+  // "숫자값"에서 비롯된 변경: 입력창 텍스트도 함께 정규화한다.
+  const handleSliderChange = (val: number) => {
+    applyGpaValue(val);
+    setSliderInput(val.toFixed(3));
+  };
+
+  // 텍스트 입력창에 직접 타이핑할 때: 사용자가 입력한 문자열은 그대로 두고
+  // (재포맷하지 않고) 슬라이더/성적에만 실시간으로 반영한다.
   const handleSliderInputChange = (text: string) => {
     setSliderInput(text);
     const num = parseFloat(text);
     if (!isNaN(num) && num >= 1.0 && num <= 5.0) {
-      handleSliderChange(num);
+      applyGpaValue(num);
     }
   };
 
