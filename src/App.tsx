@@ -271,6 +271,24 @@ export default function App() {
     return { label: '적정', color: 'bg-blue-50 text-blue-600 border-blue-200' };
   };
 
+  // 전형명 앞부분(교과/종합/논술 등)에 따라 파스텔톤 배지 색을 구분해서 반환.
+  // 전체 디자인의 인디고/바이올렛/앰버 팔레트와 어울리도록 맞췄다.
+  const getAdmissionTypeStyle = (admissionName: string) => {
+    if (admissionName.startsWith('교과')) {
+      return 'bg-sky-50 text-sky-700 border-sky-200';
+    }
+    if (admissionName.startsWith('종합')) {
+      return 'bg-violet-50 text-violet-700 border-violet-200';
+    }
+    if (admissionName.startsWith('논술')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    if (admissionName.startsWith('실기') || admissionName.startsWith('적성')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    return 'bg-slate-100 text-slate-500 border-slate-200';
+  };
+
   const categories: { id: Category | '전체'; name: string; icon: any; emoji: string }[] = [
     { id: '전체', name: '전체', icon: Filter, emoji: '🔍' },
     { id: '인문', name: '인문', icon: BookOpen, emoji: '📖' },
@@ -887,7 +905,7 @@ export default function App() {
 
                       {/* 중단: 전형명 + 계열 + 소신/안정 배지 */}
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                        <span className="text-[11px] font-semibold text-slate-500 truncate max-w-[170px]">
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold truncate max-w-[170px] border ${getAdmissionTypeStyle(record.admissionName)}`}>
                           {record.admissionName}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
