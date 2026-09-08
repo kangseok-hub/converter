@@ -670,20 +670,31 @@ export default function App() {
               {[
                 { id: 'mixed', name: '경기/부산/광주 평균' },
                 { id: 'gyeonggi', name: '경기진협' },
-                { id: 'busan', name: '부산시교육청' },
+                { id: 'busan', name: '부산시교육청', badge: '🆕 최신(2-1학기)' },
                 { id: 'gwangju', name: '광주시교육청' }
               ].map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => setConversionVersion(v.id as ConversionVersion)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     conversionVersion === v.id 
                       ? 'bg-slate-900 text-white shadow-xs' 
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {v.name}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{v.name}</span>
+                    {v.badge && (
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                        conversionVersion === v.id
+                          ? 'bg-amber-400 text-amber-950'
+                          : 'bg-amber-100 text-amber-700 border border-amber-300'
+                      }`}>
+                        {v.badge}
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
