@@ -20,8 +20,7 @@ import {
   Calculator,
   X
 } from 'lucide-react';
-import { convertGrade, ConversionVersion, parseCSV, Category } from './lib/admissionUtils';
-import { rawCSV } from './data/rawCSV';
+import { convertGrade, ConversionVersion, loadAdmissionRecords, Category } from './lib/admissionUtils';
 
 export type SearchMode = 'current' | 'projected' | 'goal_seek';
 
@@ -63,7 +62,7 @@ export default function App() {
     setDisplayLimit(90);
   }, [conversionVersion, selectedCategory, selectedAdmissionType, searchQuery, searchRange, selectedUniversity, grades, searchMode, includeTopTier, completedSemester]);
 
-  const allRecords = useMemo(() => parseCSV(rawCSV), []);
+  const allRecords = useMemo(() => loadAdmissionRecords(), []);
 
   const universityList = useMemo(() => {
     const unis = Array.from(new Set(allRecords.map(r => r.university))).sort();
@@ -976,7 +975,7 @@ export default function App() {
 
                   return (
                     <div
-                      key={`${record.university}-${record.department}-${record.admissionName}-${index}`}
+                      key={`${record.region}-${record.university}-${record.department}-${record.admissionName}-${index}`}
                       className="bg-white px-4 py-3.5 rounded-2xl border border-slate-200/80 hover:border-indigo-400 hover:shadow-md transition-all flex flex-col justify-between gap-2.5 group"
                     >
                       {/* 상단: 대학명 + 등급 */}
@@ -984,6 +983,7 @@ export default function App() {
                         <div className="min-w-0">
                           <h3 className="text-base font-black text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
                             {record.university}
+                            <span className="ml-1.5 text-[10px] font-bold text-slate-400 align-middle">{record.region}</span>
                           </h3>
                           <p className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
                             {record.department}
@@ -1010,6 +1010,26 @@ export default function App() {
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${diff.color}`}>
                             {diff.label}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* 모집인원 / 경쟁률 / 추합인원 */}
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="bg-slate-50 rounded-lg py-1.5">
+                          <p className="text-[9px] font-bold text-slate-400">모집인원</p>
+                          <p className="text-[12px] font-black text-slate-700 tabular-nums">{record.recruitCount}명</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg py-1.5">
+                          <p className="text-[9px] font-bold text-slate-400">경쟁률</p>
+                          <p className="text-[12px] font-black text-slate-700 tabular-nums">
+                            {record.competitionRate !== null ? `${record.competitionRate.toFixed(2)}:1` : '정보없음'}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg py-1.5">
+                          <p className="text-[9px] font-bold text-slate-400">추합인원</p>
+                          <p className="text-[12px] font-black text-slate-700 tabular-nums">
+                            {record.additionalAdmit !== null ? `${record.additionalAdmit}명` : '정보없음'}
+                          </p>
                         </div>
                       </div>
 
