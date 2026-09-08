@@ -39,7 +39,7 @@ export function convertGrade(grade5: number, version: ConversionVersion = 'mixed
     reason = `경기진학지도협의회 '2025학년도 1학년 성적 분석 자료'를 바탕으로 환산한 결과, 약 ${grade9.toFixed(3)} 등급으로 추정됩니다.`;
   } else if (version === 'busan') {
     grade9 = b9;
-    reason = `부산시 교육청 '2025학년도 고1 1~2학기 등급평균 분석 자료'를 바탕으로 환산한 결과, 약 ${grade9.toFixed(3)} 등급으로 추정됩니다.`;
+    reason = `부산시 교육청 '2026학년도 고2 1학기까지 누적 등급평균 분석 자료(최신)'를 바탕으로 환산한 결과, 약 ${grade9.toFixed(3)} 등급으로 추정됩니다.`;
   } else if (version === 'gwangju') {
     grade9 = gj9;
     reason = `광주시 교육청 '2025학년도 고1 등급평균 분석 자료'를 바탕으로 환산한 결과, 약 ${grade9.toFixed(3)} 등급으로 추정됩니다.`;
