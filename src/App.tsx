@@ -52,6 +52,7 @@ export default function App() {
 
   const [conversionVersion, setConversionVersion] = useState<ConversionVersion>('mixed');
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
+  const [selectedAdmissionType, setSelectedAdmissionType] = useState<'전체' | '교과' | '종합' | '논술' | '실기'>('전체');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
@@ -60,7 +61,7 @@ export default function App() {
 
   useEffect(() => {
     setDisplayLimit(90);
-  }, [conversionVersion, selectedCategory, searchQuery, searchRange, selectedUniversity, grades, searchMode, includeTopTier, completedSemester]);
+  }, [conversionVersion, selectedCategory, selectedAdmissionType, searchQuery, searchRange, selectedUniversity, grades, searchMode, includeTopTier, completedSemester]);
 
   const allRecords = useMemo(() => parseCSV(rawCSV), []);
 
@@ -235,14 +236,25 @@ export default function App() {
     };
   };
 
+  // 전형명 앞부분(교과/종합/논술/실기 등)으로 전형 유형을 판정.
+  // 배지 색(getAdmissionTypeStyle)과 짝이 맞도록 같은 접두어 규칙을 사용한다.
+  const getAdmissionType = (admissionName: string): '교과' | '종합' | '논술' | '실기' | '기타' => {
+    if (admissionName.startsWith('교과')) return '교과';
+    if (admissionName.startsWith('종합')) return '종합';
+    if (admissionName.startsWith('논술')) return '논술';
+    if (admissionName.startsWith('실기') || admissionName.startsWith('적성')) return '실기';
+    return '기타';
+  };
+
   const categoryCounts = useMemo(() => {
     const baseFiltered = allRecords.filter(record => {
       const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
+      const admissionTypeMatch = selectedAdmissionType === '전체' || getAdmissionType(record.admissionName) === selectedAdmissionType;
       const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
-      return gradeMatch && universityMatch && searchMatch;
+      return gradeMatch && universityMatch && admissionTypeMatch && searchMatch;
     });
 
     const counts: Record<string, number> = { '전체': baseFiltered.length };
@@ -250,10 +262,10 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, lowerBound, upperBound, selectedUniversity, searchQuery, searchMode]);
+  }, [allRecords, lowerBound, upperBound, selectedUniversity, selectedAdmissionType, searchQuery, searchMode]);
 
-  const filteredRecords = useMemo(() => {
-    return allRecords.filter(record => {
+  const admissionTypeCounts = useMemo(() => {
+    const baseFiltered = allRecords.filter(record => {
       const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
@@ -261,8 +273,28 @@ export default function App() {
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
       return gradeMatch && categoryMatch && universityMatch && searchMatch;
+    });
+
+    const counts: Record<string, number> = { '전체': baseFiltered.length };
+    baseFiltered.forEach(r => {
+      const type = getAdmissionType(r.admissionName);
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedUniversity, searchQuery, searchMode]);
+
+  const filteredRecords = useMemo(() => {
+    return allRecords.filter(record => {
+      const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
+      const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
+      const admissionTypeMatch = selectedAdmissionType === '전체' || getAdmissionType(record.admissionName) === selectedAdmissionType;
+      const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
+      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
+      return gradeMatch && categoryMatch && admissionTypeMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, lowerBound, upperBound, selectedCategory, searchQuery, selectedUniversity, searchMode]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedAdmissionType, searchQuery, selectedUniversity, searchMode]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
@@ -287,6 +319,46 @@ export default function App() {
       return 'bg-rose-50 text-rose-700 border-rose-200';
     }
     return 'bg-slate-100 text-slate-500 border-slate-200';
+  };
+
+  // 전형 유형 탭 버튼 색상: 선택 안 됐을 때는 파스텔톤(getAdmissionTypeStyle과 동일 계열),
+  // 선택됐을 때는 같은 색조의 진한 버전으로 강조한다.
+  const admissionTypeTabs: { id: '전체' | '교과' | '종합' | '논술' | '실기'; name: string; emoji: string }[] = [
+    { id: '전체', name: '전체', emoji: '🔍' },
+    { id: '교과', name: '교과', emoji: '📘' },
+    { id: '종합', name: '종합', emoji: '🎯' },
+    { id: '논술', name: '논술', emoji: '✍️' },
+    { id: '실기', name: '실기', emoji: '🎨' },
+  ];
+
+  const getAdmissionTypeTabStyle = (id: '전체' | '교과' | '종합' | '논술' | '실기', isSelected: boolean) => {
+    if (isSelected) {
+      switch (id) {
+        case '교과': return 'bg-sky-600 border-sky-600 text-white shadow-xs';
+        case '종합': return 'bg-violet-600 border-violet-600 text-white shadow-xs';
+        case '논술': return 'bg-amber-500 border-amber-500 text-white shadow-xs';
+        case '실기': return 'bg-rose-600 border-rose-600 text-white shadow-xs';
+        default: return 'bg-slate-900 border-slate-900 text-white shadow-xs';
+      }
+    }
+    switch (id) {
+      case '교과': return 'bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100';
+      case '종합': return 'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100';
+      case '논술': return 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100';
+      case '실기': return 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100';
+      default: return 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50';
+    }
+  };
+
+  const getAdmissionTypeTabCountStyle = (id: '전체' | '교과' | '종합' | '논술' | '실기', isSelected: boolean) => {
+    if (isSelected) return 'bg-white/25 text-white';
+    switch (id) {
+      case '교과': return 'bg-sky-100 text-sky-600';
+      case '종합': return 'bg-violet-100 text-violet-600';
+      case '논술': return 'bg-amber-100 text-amber-700';
+      case '실기': return 'bg-rose-100 text-rose-600';
+      default: return 'bg-slate-100 text-slate-400';
+    }
   };
 
   const categories: { id: Category | '전체'; name: string; icon: any; emoji: string }[] = [
@@ -847,6 +919,28 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* 전형 유형 탭 (교과/종합/논술/실기) */}
+            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100">
+              {admissionTypeTabs.map((tab) => {
+                const count = admissionTypeCounts[tab.id] || 0;
+                const isSelected = selectedAdmissionType === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedAdmissionType(tab.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${getAdmissionTypeTabStyle(tab.id, isSelected)}`}
+                  >
+                    <span>{tab.emoji}</span>
+                    <span>{tab.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${getAdmissionTypeTabCountStyle(tab.id, isSelected)}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 검색 결과 카운터 */}
@@ -855,12 +949,13 @@ export default function App() {
               검색된 모집단위: <strong className="text-indigo-600">{filteredRecords.length}</strong>개
               {searchMode === 'goal_seek' && <span className="ml-2 text-amber-700 font-semibold">(목표 역산 모드)</span>}
             </p>
-            {selectedUniversity !== '전체' || selectedCategory !== '전체' || searchQuery !== '' ? (
+            {selectedUniversity !== '전체' || selectedCategory !== '전체' || selectedAdmissionType !== '전체' || searchQuery !== '' ? (
               <button 
                 type="button"
                 onClick={() => {
                   setSelectedUniversity('전체');
                   setSelectedCategory('전체');
+                  setSelectedAdmissionType('전체');
                   setSearchQuery('');
                 }}
                 className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 cursor-pointer"
