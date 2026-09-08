@@ -1,13 +1,18 @@
 import { gyeonggiData, busanData, gwangjuData } from '../data/conversionData';
+import { rawAdmissionData } from '../data/admissionData';
 
 export type Category = '인문' | '사회' | '자연' | '공학' | '의약' | '교육' | '기타';
 
 export interface AdmissionRecord {
+  region: string;
   university: string;
-  campus: string;
   admissionName: string;
   department: string;
-  averageGrade: number;
+  track: string;               // 원자료의 인문/자연/의학/통합 구분
+  recruitCount: number;        // 모집인원
+  competitionRate: number | null; // 경쟁률 (정보 없으면 null)
+  additionalAdmit: number | null; // 추합인원 (정보 없으면 null)
+  averageGrade: number;        // 70% 컷 등급
   category: Category;
 }
 
@@ -72,32 +77,34 @@ export function categorizeDepartment(dept: string): Category {
   return '기타';
 }
 
-export function parseCSV(csv: string): AdmissionRecord[] {
-  const lines = csv.trim().split('\n');
-  const records: AdmissionRecord[] = [];
+// 학과 키워드로 계열 분류가 애매한(기타로 빠지는) 경우, 원자료의 인문/자연 구분값으로 보정한다.
+function resolveCategory(department: string, track: string): Category {
+  const byKeyword = categorizeDepartment(department);
+  if (byKeyword !== '기타') return byKeyword;
+  if (track === '의학') return '의약';
+  if (track === '인문') return '인문';
+  if (track === '자연') return '자연';
+  return '기타';
+}
 
-  // Skip header
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    if (cols.length < 5) continue;
+// 2026학년도 수시 입시결과 원자료(src/data/admissionData.ts)를 화면에서 쓰는
+// AdmissionRecord 형태로 변환한다. 기존에는 CSV 문자열을 파싱했지만,
+// 학과/전형명에 쉼표가 포함된 경우가 있어 이제는 구조화된 배열을 직접 사용한다.
+export function loadAdmissionRecords(): AdmissionRecord[] {
+  return rawAdmissionData.map(row => {
+    const [region, university, admissionName, department, track, recruitCount, competitionRate, additionalAdmit, averageGrade] = row;
 
-    const university = cols[0].trim();
-    const campus = cols[1].trim();
-    const admissionName = cols[2].trim();
-    const department = cols[3].trim();
-    const averageGrade = parseFloat(cols[4].trim());
-
-    if (!university || !department || isNaN(averageGrade)) continue;
-
-    records.push({
+    return {
+      region,
       university,
-      campus,
       admissionName,
       department,
+      track,
+      recruitCount,
+      competitionRate,
+      additionalAdmit,
       averageGrade,
-      category: categorizeDepartment(department)
-    });
-  }
-
-  return records;
+      category: resolveCategory(department, track)
+    };
+  });
 }
