@@ -18,11 +18,15 @@ import {
   Lock,
   ArrowLeft,
   Calculator,
-  X
+  X,
+  MapPin
 } from 'lucide-react';
 import { convertGrade, ConversionVersion, loadAdmissionRecords, Category } from './lib/admissionUtils';
 
 export type SearchMode = 'current' | 'projected' | 'goal_seek';
+
+// 지역 필터 칩 노출 순서 (수도권 -> 지방 순). 실제 데이터에 없는 지역은 자동으로 제외된다.
+const REGION_ORDER = ['서울', '경기', '인천', '강원', '대전', '충북', '충남', '전북', '광주전남', '대구경북', '부산울산경남', '제주'];
 
 export default function App() {
   const [searchMode, setSearchMode] = useState<SearchMode>('projected');
@@ -52,6 +56,8 @@ export default function App() {
   const [conversionVersion, setConversionVersion] = useState<ConversionVersion>('mixed');
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
   const [selectedAdmissionType, setSelectedAdmissionType] = useState<'전체' | '교과' | '종합' | '논술' | '실기'>('전체');
+  // 지역 필터: 비어있으면 "전체"(제한 없음), 여러 지역을 동시에 선택할 수 있다.
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchRange, setSearchRange] = useState<number>(0.1);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('전체');
@@ -60,7 +66,7 @@ export default function App() {
 
   useEffect(() => {
     setDisplayLimit(90);
-  }, [conversionVersion, selectedCategory, selectedAdmissionType, searchQuery, searchRange, selectedUniversity, grades, searchMode, includeTopTier, completedSemester]);
+  }, [conversionVersion, selectedCategory, selectedAdmissionType, selectedRegions, searchQuery, searchRange, selectedUniversity, grades, searchMode, includeTopTier, completedSemester]);
 
   const allRecords = useMemo(() => loadAdmissionRecords(), []);
 
@@ -68,6 +74,20 @@ export default function App() {
     const unis = Array.from(new Set(allRecords.map(r => r.university))).sort();
     return ['전체', ...unis];
   }, [allRecords]);
+
+  // 데이터에 실제로 존재하는 지역만, 정해진 순서(수도권 -> 지방)대로 노출한다.
+  const regionList = useMemo(() => {
+    const present = new Set(allRecords.map(r => r.region));
+    const ordered = REGION_ORDER.filter(r => present.has(r));
+    const extra = Array.from(present).filter(r => !REGION_ORDER.includes(r)).sort();
+    return [...ordered, ...extra];
+  }, [allRecords]);
+
+  const toggleRegion = (region: string) => {
+    setSelectedRegions(prev =>
+      prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region]
+    );
+  };
 
   // 9등급 -> 5등급 역산 함수
   const invert9to5 = useMemo(() => {
@@ -250,10 +270,11 @@ export default function App() {
       const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
       const admissionTypeMatch = selectedAdmissionType === '전체' || getAdmissionType(record.admissionName) === selectedAdmissionType;
-      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.includes(record.region);
+      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
-      return gradeMatch && universityMatch && admissionTypeMatch && searchMatch;
+      return gradeMatch && universityMatch && admissionTypeMatch && regionMatch && searchMatch;
     });
 
     const counts: Record<string, number> = { '전체': baseFiltered.length };
@@ -261,17 +282,18 @@ export default function App() {
       counts[r.category] = (counts[r.category] || 0) + 1;
     });
     return counts;
-  }, [allRecords, lowerBound, upperBound, selectedUniversity, selectedAdmissionType, searchQuery, searchMode]);
+  }, [allRecords, lowerBound, upperBound, selectedUniversity, selectedAdmissionType, selectedRegions, searchQuery, searchMode]);
 
   const admissionTypeCounts = useMemo(() => {
     const baseFiltered = allRecords.filter(record => {
       const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
-      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.includes(record.region);
+      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
-      return gradeMatch && categoryMatch && universityMatch && searchMatch;
+      return gradeMatch && categoryMatch && universityMatch && regionMatch && searchMatch;
     });
 
     const counts: Record<string, number> = { '전체': baseFiltered.length };
@@ -280,20 +302,42 @@ export default function App() {
       counts[type] = (counts[type] || 0) + 1;
     });
     return counts;
-  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedUniversity, searchQuery, searchMode]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedUniversity, selectedRegions, searchQuery, searchMode]);
+
+  // 지역 칩 옆 숫자: 다른 필터(등급/계열/전형/대학/검색어)는 반영하되, 지역 자체는
+  // 제외한 상태로 집계해서 "이 지역을 추가로 선택하면 몇 건인지"를 보여준다.
+  const regionCounts = useMemo(() => {
+    const baseFiltered = allRecords.filter(record => {
+      const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
+      const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
+      const admissionTypeMatch = selectedAdmissionType === '전체' || getAdmissionType(record.admissionName) === selectedAdmissionType;
+      const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
+      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
+      return gradeMatch && categoryMatch && admissionTypeMatch && universityMatch && searchMatch;
+    });
+
+    const counts: Record<string, number> = { '전체': baseFiltered.length };
+    baseFiltered.forEach(r => {
+      counts[r.region] = (counts[r.region] || 0) + 1;
+    });
+    return counts;
+  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedAdmissionType, selectedUniversity, searchQuery, searchMode]);
 
   const filteredRecords = useMemo(() => {
     return allRecords.filter(record => {
       const gradeMatch = searchMode === 'goal_seek' || (record.averageGrade >= lowerBound && record.averageGrade <= upperBound);
       const categoryMatch = selectedCategory === '전체' || record.category === selectedCategory;
       const admissionTypeMatch = selectedAdmissionType === '전체' || getAdmissionType(record.admissionName) === selectedAdmissionType;
+      const regionMatch = selectedRegions.length === 0 || selectedRegions.includes(record.region);
       const universityMatch = selectedUniversity === '전체' || record.university === selectedUniversity;
-      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const searchMatch = record.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           record.admissionName.toLowerCase().includes(searchQuery.toLowerCase());
-      return gradeMatch && categoryMatch && admissionTypeMatch && universityMatch && searchMatch;
+      return gradeMatch && categoryMatch && admissionTypeMatch && regionMatch && universityMatch && searchMatch;
     }).sort((a, b) => a.averageGrade - b.averageGrade);
-  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedAdmissionType, searchQuery, selectedUniversity, searchMode]);
+  }, [allRecords, lowerBound, upperBound, selectedCategory, selectedAdmissionType, selectedRegions, searchQuery, selectedUniversity, searchMode]);
 
   const getDifficulty = (avgGrade: number, myGrade: number) => {
     const diff = avgGrade - myGrade;
@@ -892,6 +936,53 @@ export default function App() {
               </div>
             </div>
 
+            {/* 지역 필터 (중복 선택 가능) */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-500 flex items-center gap-1 mr-0.5">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                지역 (중복 선택 가능):
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedRegions([])}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  selectedRegions.length === 0
+                    ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span>전체</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                  selectedRegions.length === 0 ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                }`}>
+                  {regionCounts['전체'] || 0}
+                </span>
+              </button>
+              {regionList.map((region) => {
+                const isSelected = selectedRegions.includes(region);
+                const count = regionCounts[region] || 0;
+                return (
+                  <button
+                    key={region}
+                    type="button"
+                    onClick={() => toggleRegion(region)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{region}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                      isSelected ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* 계열 카테고리 탭 */}
             <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100">
               {categories.map((cat) => {
@@ -948,13 +1039,14 @@ export default function App() {
               검색된 모집단위: <strong className="text-indigo-600">{filteredRecords.length}</strong>개
               {searchMode === 'goal_seek' && <span className="ml-2 text-amber-700 font-semibold">(목표 역산 모드)</span>}
             </p>
-            {selectedUniversity !== '전체' || selectedCategory !== '전체' || selectedAdmissionType !== '전체' || searchQuery !== '' ? (
-              <button 
+            {selectedUniversity !== '전체' || selectedCategory !== '전체' || selectedAdmissionType !== '전체' || selectedRegions.length > 0 || searchQuery !== '' ? (
+              <button
                 type="button"
                 onClick={() => {
                   setSelectedUniversity('전체');
                   setSelectedCategory('전체');
                   setSelectedAdmissionType('전체');
+                  setSelectedRegions([]);
                   setSearchQuery('');
                 }}
                 className="text-[11px] font-bold text-slate-400 hover:text-indigo-600 cursor-pointer"
