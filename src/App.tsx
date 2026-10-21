@@ -936,23 +936,27 @@ export default function App() {
               </div>
             </div>
 
-            {/* 지역 필터 (중복 선택 가능) */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-500 flex items-center gap-1 mr-0.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                지역 (중복 선택 가능):
+            {/* 지역 필터 (중복 선택 가능) - 한 줄에 다 들어오도록 폭이 좁아지면 글자/여백을 줄이고,
+                그래도 안 들어가는 초소형 화면에서만 가로 스크롤로 대응한다. */}
+            <div className="flex flex-nowrap items-center gap-0.5 sm:gap-1 pt-2 border-t border-slate-100 overflow-x-auto no-scrollbar">
+              <span
+                title="지역 (중복 선택 가능)"
+                className="text-[9px] sm:text-[10px] font-bold text-slate-500 flex items-center gap-0.5 mr-0.5 shrink-0 whitespace-nowrap"
+              >
+                <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                지역:
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedRegions([])}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                className={`inline-flex items-center gap-1 shrink-0 whitespace-nowrap px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all border cursor-pointer ${
                   selectedRegions.length === 0
                     ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span>전체</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                <span className={`text-[8px] sm:text-[9px] px-1 rounded ${
                   selectedRegions.length === 0 ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
                 }`}>
                   {regionCounts['전체'] || 0}
@@ -966,14 +970,14 @@ export default function App() {
                     key={region}
                     type="button"
                     onClick={() => toggleRegion(region)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    className={`inline-flex items-center gap-1 shrink-0 whitespace-nowrap px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all border cursor-pointer ${
                       isSelected
                         ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span>{region}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                    <span className={`text-[8px] sm:text-[9px] px-1 rounded ${
                       isSelected ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-100 text-slate-400'
                     }`}>
                       {count}
