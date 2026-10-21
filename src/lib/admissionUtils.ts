@@ -92,7 +92,10 @@ function resolveCategory(department: string, track: string): Category {
 // 학과/전형명에 쉼표가 포함된 경우가 있어 이제는 구조화된 배열을 직접 사용한다.
 export function loadAdmissionRecords(): AdmissionRecord[] {
   return rawAdmissionData.map(row => {
-    const [region, university, admissionName, department, track, recruitCount, competitionRate, additionalAdmit, averageGrade] = row;
+    const [rawRegion, university, admissionName, department, track, recruitCount, competitionRate, additionalAdmit, averageGrade] = row;
+    // 원자료에 "서울15"처럼 지역명 뒤에 숫자가 잘못 붙어 들어온 값이 섞여 있어
+    // 지역 필터링이 깨지지 않도록 끝의 숫자를 제거해 정규화한다.
+    const region = rawRegion.replace(/\d+$/, '');
 
     return {
       region,
