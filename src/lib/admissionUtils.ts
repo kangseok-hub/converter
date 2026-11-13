@@ -59,7 +59,37 @@ export function convertGrade(grade5: number, version: ConversionVersion = 'mixed
   };
 }
 
-export function categorizeDepartment(dept: string): Category {
+// 특정 키워드는 전혀 무관한 학과명 안에서 음절이 우연히 이어 붙어 잘못 매칭된다
+// (예: "자유전공학부"의 "전공학부" 안에 "공학"이, "군사학과"의 "군사학" 안에 "사학"이,
+// "차세대통신학과"의 "통신학" 안에 "신학"이, "창의학부"의 "창의학" 안에 "의학"이 우연히
+// 포함됨). 이런 키워드가 아래 지정된 상위 문자열의 일부로만 등장했다면 매칭에서 제외한다.
+const FALSE_POSITIVE_SUBSTRINGS: Record<string, string[]> = {
+  '공학': ['전공학부', '전공학과'],
+  '사학': ['군사학'],
+  '신학': ['통신학'],
+  '의학': ['창의학'],
+  '원예': ['복원예술'],
+};
+
+function includesKeyword(dept: string, keyword: string): boolean {
+  if (!dept.includes(keyword)) return false;
+  const falsePositives = FALSE_POSITIVE_SUBSTRINGS[keyword];
+  if (!falsePositives) return true;
+  // 진짜 매칭이 하나라도 남아있는지 확인: 키워드가 등장하는 모든 위치가
+  // 오탐 패턴 안에 있는 경우에만 "매칭 없음"으로 처리한다.
+  let idx = dept.indexOf(keyword);
+  while (idx !== -1) {
+    const coveredByFalsePositive = falsePositives.some(fp => {
+      const fpIdx = dept.indexOf(fp);
+      return fpIdx !== -1 && idx >= fpIdx && idx < fpIdx + fp.length;
+    });
+    if (!coveredByFalsePositive) return true;
+    idx = dept.indexOf(keyword, idx + 1);
+  }
+  return false;
+}
+
+export function categorizeDepartment(dept: string, track?: string): Category {
   const educationKeywords = ['교육', '사범'];
   const medicalKeywords = ['의예', '치의예', '한의예', '약학', '간호', '임상병리', '방사선', '물리치료', '작업치료', '치위생', '응급구조', '수의예', '의학', '한약', '의료', '치기공', '보건'];
   const engineeringKeywords = ['전자', '컴퓨터', '기계', '신소재', '건축', '에너지', '토목', '환경', '산업', '소프트웨어', '인공지능', '로봇', '반도체', '자동차', '화학공학', '고분자', '시스템', '전기', '정보', '공학', 'AI', '데이터', '융합기술', '드론', '메카'];
@@ -67,19 +97,45 @@ export function categorizeDepartment(dept: string): Category {
   const socialKeywords = ['경영', '경제', '법학', '행정', '미디어', '사회복지', '심리', '정치', '외교', '무역', '회계', '관광', '언론', '아동', '소비자', '지리', '사회', '광고', '홍보', '금융', '부동산', '세무', '국제', '커뮤니케이션'];
   const humanitiesKeywords = ['인문', '어문', '역사', '철학', '종교', '국어', '영어', '독어', '불어', '일어', '중어', '한문', '사학', '고고', '미학', '문학', '언어', '신학', '창작', '문화'];
 
-  if (educationKeywords.some(k => dept.includes(k))) return '교육';
-  if (medicalKeywords.some(k => dept.includes(k))) return '의약';
-  if (engineeringKeywords.some(k => dept.includes(k))) return '공학';
-  if (naturalKeywords.some(k => dept.includes(k))) return '자연';
-  if (socialKeywords.some(k => dept.includes(k))) return '사회';
-  if (humanitiesKeywords.some(k => dept.includes(k))) return '인문';
+  if (educationKeywords.some(k => includesKeyword(dept, k))) return '교육';
+
+  // 원자료의 모집 계열(track)이 "인문"인 모집단위는 실제로 공학/자연/이공계열 의약으로
+  // 분류되는 경우가 없다. 그런데 "정보", "산업", "AI", "과학", "의료", "해양" 같은 범용
+  // 단어가 "경영정보학과", "산업심리학과", "사회과학부", "의료경영학과", "해양행정학과"처럼
+  // 사실상 사회/인문 계열인 학과명에 섞여 들어가 공학·자연·의약으로 잘못 분류되는 사례가
+  // 많았다(실측 약 200건). 인문 트랙에서는 의약/공학/자연 키워드 검사를 건너뛰고
+  // 사회/인문 중에서만 고른다.
+  if (track === '인문') {
+    if (socialKeywords.some(k => includesKeyword(dept, k))) return '사회';
+    if (humanitiesKeywords.some(k => includesKeyword(dept, k))) return '인문';
+    return '인문';
+  }
+
+  // 같은 이유로, track이 "자연"인 모집단위도 실제로는 사회/인문으로 분류될 수 없다.
+  // "지리학과(자연계열)", "디지털미디어학과", "소방방재행정학과", "철도경영물류학과"처럼
+  // 학과명에는 사회계열 범용 단어("지리", "미디어", "행정", "경영")가 들어있지만 자연계열
+  // 적성으로 모집하는 학과들이 사회로 잘못 분류되는 사례가 많았다(실측 16건). 자연 트랙에서는
+  // 의약/공학/자연 키워드만 확인하고, 그중 아무것도 안 맞으면 사회/인문으로 내려가지 않고
+  // 자연으로 분류한다.
+  if (track === '자연') {
+    if (medicalKeywords.some(k => includesKeyword(dept, k))) return '의약';
+    if (engineeringKeywords.some(k => includesKeyword(dept, k))) return '공학';
+    if (naturalKeywords.some(k => includesKeyword(dept, k))) return '자연';
+    return '자연';
+  }
+
+  if (medicalKeywords.some(k => includesKeyword(dept, k))) return '의약';
+  if (engineeringKeywords.some(k => includesKeyword(dept, k))) return '공학';
+  if (naturalKeywords.some(k => includesKeyword(dept, k))) return '자연';
+  if (socialKeywords.some(k => includesKeyword(dept, k))) return '사회';
+  if (humanitiesKeywords.some(k => includesKeyword(dept, k))) return '인문';
 
   return '기타';
 }
 
 // 학과 키워드로 계열 분류가 애매한(기타로 빠지는) 경우, 원자료의 인문/자연 구분값으로 보정한다.
 function resolveCategory(department: string, track: string): Category {
-  const byKeyword = categorizeDepartment(department);
+  const byKeyword = categorizeDepartment(department, track);
   if (byKeyword !== '기타') return byKeyword;
   if (track === '의학') return '의약';
   if (track === '인문') return '인문';
